@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XPR Playground</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="header">
+        <div class="header-left">
+          <span class="logo">XPR</span>
+          <span class="tagline">Playground</span>
+        </div>
+        <div class="header-right">
+          <select id="examples-select" class="examples-select" title="Load an example">
+            <option value="">Examples…</option>
+            <option value="map">Map: double array</option>
+            <option value="filter">Filter active items</option>
+            <option value="template">Template literal</option>
+            <option value="optional">Optional chaining</option>
+            <option value="reduce">Sum prices</option>
+          </select>
+          <button id="share-btn" class="btn btn-secondary" title="Copy shareable link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share
+          </button>
+          <a href="https://xpr-lang.github.io/xpr-docs/" target="_blank" rel="noopener" class="btn btn-ghost" title="Documentation">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 0 3-3h7z"/></svg>
+            Docs
+          </a>
+        </div>
+      </header>
+
+      <main class="main">
+        <div class="editors-row">
+          <div class="editor-pane">
+            <div class="pane-label">Expression</div>
+            <textarea
+              id="expr-editor"
+              class="editor"
+              spellcheck="false"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              placeholder="items.filter(x => x.active).map(x => x.name)"
+            ></textarea>
+          </div>
+          <div class="editor-pane">
+            <div class="pane-label">Context <span class="pane-label-hint">(JSON)</span></div>
+            <textarea
+              id="ctx-editor"
+              class="editor"
+              spellcheck="false"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              placeholder='{"key": "value"}'
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="results-row">
+          <div class="results-header">
+            <span class="results-label">Result</span>
+            <span id="eval-status" class="eval-status"></span>
+          </div>
+          <div class="results-panels">
+            <div class="result-panel" id="result-js">
+              <div class="result-panel-header">
+                <span class="runtime-badge js">JS</span>
+                <span class="runtime-name">JavaScript</span>
+              </div>
+              <pre class="result-output" id="output-js"><span class="placeholder">—</span></pre>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <div id="toast" class="toast" aria-live="polite"></div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

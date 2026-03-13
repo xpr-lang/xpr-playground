@@ -7,10 +7,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: xpr-playground
       - uses: actions/checkout@v4
         with:
           repository: xpr-lang/xpr-js
-          path: ../xpr-js
+          path: xpr-js
       - uses: oven-sh/setup-bun@v2
       - run: bun install
+        working-directory: xpr-playground
       - run: bun run build
+        working-directory: xpr-playground

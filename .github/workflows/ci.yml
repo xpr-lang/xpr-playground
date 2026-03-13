@@ -14,6 +14,8 @@ jobs:
           repository: xpr-lang/xpr-js
           path: xpr-js
       - uses: oven-sh/setup-bun@v2
+      - run: bun install && bun run build
+        working-directory: xpr-js
       - run: bun install
         working-directory: xpr-playground
       - run: bun run build

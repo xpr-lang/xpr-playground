@@ -113,7 +113,7 @@ const exprView = new EditorView({
   state: EditorState.create({
     doc: '',
     extensions: [
-      xprLanguage,
+      ...xprLanguage,
       xprTheme,
       keymap.of([...defaultKeymap, indentWithTab]),
       EditorView.lineWrapping,

@@ -1,4 +1,10 @@
 import { Xpr, XprError } from '@xpr-lang/xpr'
+import { EditorView, keymap } from '@codemirror/view'
+import type { ViewUpdate } from '@codemirror/view'
+import { EditorState } from '@codemirror/state'
+import { defaultKeymap, indentWithTab } from '@codemirror/commands'
+import { json } from '@codemirror/lang-json'
+import { xprLanguage } from './xpr-lang'
 
 // ===== Examples =====
 const EXAMPLES: Record<string, { expr: string; ctx: string }> = {
@@ -32,11 +38,67 @@ const EXAMPLES: Record<string, { expr: string; ctx: string }> = {
     expr: 'items.reduce((sum, x) => sum + x.price, 0)',
     ctx: JSON.stringify({ items: [{ price: 10 }, { price: 20 }, { price: 5 }] }, null, 2),
   },
+  let_bindings: {
+    expr: 'let items = [1,2,3,4,5]; let big = items.filter(x => x > 2); big.map(x => x * 10)',
+    ctx: '{}',
+  },
+  spread_merge: {
+    expr: '{...defaults, ...overrides}',
+    ctx: JSON.stringify({ defaults: { color: 'blue', size: 10 }, overrides: { color: 'red' } }, null, 2),
+  },
 }
 
+// ===== Dark theme for CodeMirror =====
+const xprTheme = EditorView.theme(
+  {
+    '&': {
+      flex: '1',
+      minHeight: '0',
+      background: 'transparent',
+      color: 'var(--text)',
+      fontFamily: 'var(--font-mono)',
+      fontSize: '13.5px',
+      lineHeight: '1.65',
+    },
+    '.cm-content': {
+      padding: '14px 16px',
+      caretColor: 'var(--accent)',
+    },
+    '&.cm-focused': {
+      outline: 'none',
+      background: 'rgba(88, 166, 255, 0.02)',
+    },
+    '.cm-scroller': {
+      overflow: 'auto',
+      fontFamily: 'inherit',
+    },
+    '.cm-cursor': {
+      borderLeftColor: 'var(--accent)',
+    },
+    '.cm-selectionBackground': {
+      background: 'rgba(88, 166, 255, 0.15)',
+    },
+    '&.cm-focused .cm-selectionBackground': {
+      background: 'rgba(88, 166, 255, 0.2)',
+    },
+    '.cm-gutters': {
+      display: 'none',
+    },
+    '.cm-placeholder': {
+      color: 'var(--text-subtle)',
+    },
+    // Syntax highlighting token classes
+    '.cm-keyword': { color: 'var(--purple)', fontWeight: '600' },
+    '.cm-number': { color: 'var(--orange)' },
+    '.cm-string': { color: 'var(--green)' },
+    '.cm-operator': { color: 'var(--accent)' },
+    '.cm-variableName': { color: 'var(--text)' },
+    '.cm-punctuation': { color: 'var(--text-muted)' },
+  },
+  { dark: true }
+)
+
 // ===== DOM refs =====
-const exprEditor = document.getElementById('expr-editor') as HTMLTextAreaElement
-const ctxEditor = document.getElementById('ctx-editor') as HTMLTextAreaElement
 const outputJs = document.getElementById('output-js') as HTMLPreElement
 const evalStatus = document.getElementById('eval-status') as HTMLSpanElement
 const examplesSelect = document.getElementById('examples-select') as HTMLSelectElement
@@ -46,10 +108,64 @@ const toast = document.getElementById('toast') as HTMLDivElement
 // ===== XPR instance =====
 const xpr = new Xpr()
 
+// ===== CodeMirror editors =====
+const exprView = new EditorView({
+  state: EditorState.create({
+    doc: '',
+    extensions: [
+      xprLanguage,
+      xprTheme,
+      keymap.of([...defaultKeymap, indentWithTab]),
+      EditorView.lineWrapping,
+      EditorView.updateListener.of((update: ViewUpdate) => {
+        if (update.docChanged) scheduleEval()
+      }),
+    ],
+  }),
+  parent: document.getElementById('expr-editor')!,
+})
+
+const ctxView = new EditorView({
+  state: EditorState.create({
+    doc: '{}',
+    extensions: [
+      json(),
+      xprTheme,
+      keymap.of([...defaultKeymap, indentWithTab]),
+      EditorView.lineWrapping,
+      EditorView.updateListener.of((update: ViewUpdate) => {
+        if (update.docChanged) scheduleEval()
+      }),
+    ],
+  }),
+  parent: document.getElementById('ctx-editor')!,
+})
+
+// ===== Editor value helpers =====
+function getExprValue(): string {
+  return exprView.state.doc.toString()
+}
+
+function getCtxValue(): string {
+  return ctxView.state.doc.toString()
+}
+
+function setExprValue(value: string): void {
+  exprView.dispatch({
+    changes: { from: 0, to: exprView.state.doc.length, insert: value },
+  })
+}
+
+function setCtxValue(value: string): void {
+  ctxView.dispatch({
+    changes: { from: 0, to: ctxView.state.doc.length, insert: value },
+  })
+}
+
 // ===== Evaluation =====
 function evaluate(): void {
-  const expr = exprEditor.value.trim()
-  const ctxRaw = ctxEditor.value.trim()
+  const expr = getExprValue().trim()
+  const ctxRaw = getCtxValue().trim()
 
   if (!expr) {
     setOutput(outputJs, null, true)
@@ -149,8 +265,8 @@ function decodeHash(): { expr: string; ctx: string } | null {
 }
 
 function updateHash(): void {
-  const expr = exprEditor.value
-  const ctx = ctxEditor.value
+  const expr = getExprValue()
+  const ctx = getCtxValue()
   if (!expr && !ctx) {
     history.replaceState(null, '', window.location.pathname)
     return
@@ -178,7 +294,6 @@ shareBtn.addEventListener('click', () => {
   navigator.clipboard.writeText(url).then(
     () => showToast('Link copied!'),
     () => {
-      // Fallback: select the URL
       showToast('Copy this URL: ' + url)
     }
   )
@@ -190,47 +305,29 @@ examplesSelect.addEventListener('change', () => {
   if (!key) return
   const example = EXAMPLES[key]
   if (!example) return
-  exprEditor.value = example.expr
-  ctxEditor.value = example.ctx
+  setExprValue(example.expr)
+  setCtxValue(example.ctx)
   examplesSelect.value = ''
   evaluate()
   updateHash()
-  exprEditor.focus()
+  exprView.focus()
 })
-
-// ===== Input listeners =====
-exprEditor.addEventListener('input', scheduleEval)
-ctxEditor.addEventListener('input', scheduleEval)
-
-// Tab key in editors inserts 2 spaces
-function handleTab(e: KeyboardEvent): void {
-  if (e.key !== 'Tab') return
-  e.preventDefault()
-  const el = e.target as HTMLTextAreaElement
-  const start = el.selectionStart
-  const end = el.selectionEnd
-  el.value = el.value.slice(0, start) + '  ' + el.value.slice(end)
-  el.selectionStart = el.selectionEnd = start + 2
-}
-
-exprEditor.addEventListener('keydown', handleTab)
-ctxEditor.addEventListener('keydown', handleTab)
 
 // ===== Init =====
 function init(): void {
   // Load from URL hash if present
   const fromHash = decodeHash()
   if (fromHash) {
-    exprEditor.value = fromHash.expr
-    ctxEditor.value = fromHash.ctx
+    setExprValue(fromHash.expr)
+    setCtxValue(fromHash.ctx)
     evaluate()
     return
   }
 
   // Default: load the filter example
   const def = EXAMPLES['filter']!
-  exprEditor.value = def.expr
-  ctxEditor.value = def.ctx
+  setExprValue(def.expr)
+  setCtxValue(def.ctx)
   evaluate()
 }
 

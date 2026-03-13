@@ -1,21 +1,34 @@
 # xpr-playground — XPR Expression Language Playground
 
-> 🚧 **Architecture phase** — No implementation yet.
-
+[![CI](https://github.com/xpr-lang/xpr-playground/actions/workflows/ci.yml/badge.svg)](https://github.com/xpr-lang/xpr-playground/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An interactive browser-based playground for evaluating XPR expressions across JavaScript, Python, and Go runtimes side-by-side.
+An interactive browser-based playground for evaluating XPR expressions in JavaScript.
 
-## What This Will Be
+## Features
 
-- **Expression editor** with XPR syntax highlighting
+- **CodeMirror 6 editor** with XPR syntax highlighting (keywords, strings, numbers, operators)
 - **Context editor** (JSON) for providing evaluation context
-- **Multi-runtime results** — evaluate the same expression in JS, Python, and Go simultaneously
-- **Shareable links** — encode expression + context in URL
+- **Live evaluation** — results update as you type (300ms debounce)
+- **Shareable links** — encode expression + context in URL hash
+- **Built-in examples** — map, filter, template literals, optional chaining, let bindings, spread
 
-## Status
+## Running Locally
 
-Architecture decisions are documented in [ARCHITECTURE.md](ARCHITECTURE.md). No code yet.
+```bash
+bun install
+bun run dev
+```
+
+Then open http://localhost:5173.
+
+## Building
+
+```bash
+bun run build
+```
+
+Output goes to `dist/`.
 
 ## Related Repos
 

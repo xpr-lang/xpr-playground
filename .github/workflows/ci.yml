@@ -3,12 +3,10 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  validate:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate architecture notes exist
-        run: |
-          test -f README.md && echo "README exists"
-          test -f ARCHITECTURE.md && echo "ARCHITECTURE exists"
-          echo "Playground stub validation passed"
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: bun run build

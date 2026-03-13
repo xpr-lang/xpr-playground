@@ -15,6 +15,12 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@xpr-lang/xpr": "^0.1.0"
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/language": "^6.12.2",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.40.0",
+    "@xpr-lang/xpr": "file:../xpr-js",
+    "codemirror": "^6.0.2"
   }
 }

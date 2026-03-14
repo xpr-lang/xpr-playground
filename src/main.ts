@@ -46,6 +46,18 @@ const EXAMPLES: Record<string, { expr: string; ctx: string }> = {
     expr: '{...defaults, ...overrides}',
     ctx: JSON.stringify({ defaults: { color: 'blue', size: 10 }, overrides: { color: 'red' } }, null, 2),
   },
+  date_formatting: {
+    expr: 'formatDate(parseDate("2024-06-15T10:30:45Z"), "yyyy-MM-dd HH:mm:ss")',
+    ctx: '{}',
+  },
+  regex_extraction: {
+    expr: 'matchAll("Order #123, Order #456, Order #789", "\\\\d+")',
+    ctx: '{}',
+  },
+  negative_indexing_spread: {
+    expr: 'let nums = [3, 1, 4, 1, 5, 9]; [nums[-1], max(...nums)]',
+    ctx: '{}',
+  },
 }
 
 // ===== Dark theme for CodeMirror =====

@@ -58,6 +58,28 @@ const EXAMPLES: Record<string, { expr: string; ctx: string }> = {
     expr: 'let nums = [3, 1, 4, 1, 5, 9]; [nums[-1], max(...nums)]',
     ctx: '{}',
   },
+  destructuring: {
+    expr: 'let {name, age = 0} = user; `${name} is ${age}`',
+    ctx: JSON.stringify({ user: { name: 'Alice', age: 30 } }, null, 2),
+  },
+  regex_literals: {
+    expr: 'let emails = ["alice@example.com", "not-an-email", "bob@test.org"]; emails.filter(s => /^[\\w.]+@[\\w.]+$/.test(s))',
+    ctx: '{}',
+  },
+  destructuring_map: {
+    expr: 'users.map(({name, role}) => `${name} (${role})`)',
+    ctx: JSON.stringify(
+      {
+        users: [
+          { name: 'Alice', role: 'admin' },
+          { name: 'Bob', role: 'viewer' },
+          { name: 'Carol', role: 'editor' },
+        ],
+      },
+      null,
+      2
+    ),
+  },
 }
 
 // ===== Dark theme for CodeMirror =====

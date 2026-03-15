@@ -80,6 +80,18 @@ const EXAMPLES: Record<string, { expr: string; ctx: string }> = {
       2
     ),
   },
+  math_constants: {
+    expr: 'let radius = 5; let area = PI * pow(radius, 2); round(area * 100) / 100',
+    ctx: '{}',
+  },
+  collection_helpers: {
+    expr: 'let data = [3, null, 1, null, 4, 1, 5]; data.compact().unique().sortBy(x => x)',
+    ctx: '{}',
+  },
+  type_checking: {
+    expr: 'let values = [1, "two", null, [3]]; values.partition(x => isNumber(x))',
+    ctx: '{}',
+  },
 }
 
 // ===== Dark theme for CodeMirror =====

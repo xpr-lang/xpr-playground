@@ -5,8 +5,10 @@ import { defaultKeymap, indentWithTab } from '@codemirror/commands'
 import { json } from '@codemirror/lang-json'
 import { setDiagnostics } from '@codemirror/lint'
 import type { Diagnostic } from '@codemirror/lint'
+import { autocompletion } from '@codemirror/autocomplete'
 import { strFromU8, strToU8, unzlibSync, zlibSync } from 'fflate'
 import { xprLanguage } from './xpr-lang'
+import { xprCompletions } from './xpr-completions'
 import { JsWorkerRuntime } from './runtimes'
 import type { RuntimeAdapter } from './runtimes'
 import * as storage from './storage'
@@ -247,6 +249,7 @@ const exprView = new EditorView({
     extensions: [
       ...xprLanguage,
       themeCompartment.of(buildCodeMirrorTheme(initialTheme)),
+      autocompletion({ override: [xprCompletions] }),
       keymap.of([...defaultKeymap, indentWithTab]),
       EditorView.lineWrapping,
       EditorView.updateListener.of((update: ViewUpdate) => {

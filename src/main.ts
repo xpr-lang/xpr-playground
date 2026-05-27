@@ -6,6 +6,7 @@ import { defaultKeymap, indentWithTab } from '@codemirror/commands'
 import { json } from '@codemirror/lang-json'
 import { setDiagnostics } from '@codemirror/lint'
 import type { Diagnostic } from '@codemirror/lint'
+import { strFromU8, strToU8, unzlibSync, zlibSync } from 'fflate'
 import { xprLanguage } from './xpr-lang'
 
 // ===== Examples =====
@@ -392,9 +393,15 @@ function scheduleEval(): void {
 }
 
 // ===== URL Hash sharing =====
-// UTF-8-safe base64 helpers (replaces deprecated escape/unescape).
-// Produces same bytes as old `btoa(unescape(encodeURIComponent(s)))`
-// so existing #e=...&c=... hashes still decode.
+// Format (locked decision #10):
+//   v=2: `#v=2&e=<b64url>&c=<b64url>&r=<csv>` where <b64url> is base64url-encoded
+//        fflate zlib bytes (level 9). <csv> is the active runtime list.
+//   v=1: legacy `#e=<b64>&c=<b64>` UTF-8-safe base64. Decode-only; we no longer emit it.
+// v=1 URLs must keep working forever, so b64DecodeUtf8 is preserved verbatim from W1.8.
+
+// W1.8 UTF-8-safe base64 helpers — retained for v=1 decode back-compat.
+// Produces the same bytes as the old `btoa(unescape(encodeURIComponent(s)))`,
+// so any pre-existing `#e=...&c=...` link continues to decode identically.
 function b64EncodeUtf8(s: string): string {
   return btoa(String.fromCharCode(...new TextEncoder().encode(s)))
 }
@@ -403,35 +410,76 @@ function b64DecodeUtf8(s: string): string {
   return new TextDecoder().decode(Uint8Array.from(atob(s), c => c.charCodeAt(0)))
 }
 
-function encodeHash(expr: string, ctx: string): string {
-  const e = b64EncodeUtf8(expr)
-  const c = b64EncodeUtf8(ctx)
-  return `#e=${e}&c=${c}`
+// RFC 4648 §5 base64url: replace `+/` with `-_`, strip `=` padding.
+// Chunked for-of avoids spread-arg stack-size limits on large buffers and is
+// safe for `noUncheckedIndexedAccess` (Uint8Array iterators yield `number`).
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let bin = ''
+  for (const byte of bytes) bin += String.fromCharCode(byte)
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function decodeHash(): { expr: string; ctx: string } | null {
-  const hash = window.location.hash.slice(1)
-  if (!hash) return null
-  const params = new URLSearchParams(hash)
-  const e = params.get('e')
-  const c = params.get('c')
-  if (!e) return null
-  try {
-    return {
-      expr: b64DecodeUtf8(e),
-      ctx: c ? b64DecodeUtf8(c) : '{}',
+function base64UrlToBytes(s: string): Uint8Array {
+  const padded = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)
+  const bin = atob(padded)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
+
+type DecodedState = { expr: string; ctx: string; runtimes: string[] }
+
+function encodeStateV2(expr: string, ctx: string, runtimes: readonly string[]): string {
+  const e = bytesToBase64Url(zlibSync(strToU8(expr), { level: 9 }))
+  const c = bytesToBase64Url(zlibSync(strToU8(ctx), { level: 9 }))
+  const r = runtimes.join(',')
+  return `#v=2&e=${e}&c=${c}&r=${r}`
+}
+
+function decodeState(rawHash: string): DecodedState | null {
+  const body = rawHash.startsWith('#') ? rawHash.slice(1) : rawHash
+  if (!body) return null
+  const params = new URLSearchParams(body)
+
+  if (params.get('v') === '2') {
+    const e = params.get('e')
+    if (!e) return null
+    try {
+      const expr = strFromU8(unzlibSync(base64UrlToBytes(e)))
+      const c = params.get('c')
+      const ctx = c ? strFromU8(unzlibSync(base64UrlToBytes(c))) : '{}'
+      const rRaw = params.get('r')
+      const runtimes = rRaw ? rRaw.split(',').filter(Boolean) : ['js']
+      return { expr, ctx, runtimes }
+    } catch {
+      return null
     }
-  } catch {
-    return null
   }
+
+  const e1 = params.get('e')
+  if (e1) {
+    try {
+      const c1 = params.get('c')
+      return {
+        expr: b64DecodeUtf8(e1),
+        ctx: c1 ? b64DecodeUtf8(c1) : '{}',
+        runtimes: ['js'],
+      }
+    } catch {
+      return null
+    }
+  }
+
+  return null
 }
 
 function updateHash(): void {
   const expr = getExprValue()
   const ctx = getCtxValue()
   if (!expr && !ctx) return
-  const hash = encodeHash(expr, ctx)
-  history.replaceState(null, '', hash)
+  // Multi-runtime UI does not exist yet (W3 wave). Hard-coded to `['js']`;
+  // future wiring just needs to pass the user's selected runtime list.
+  history.replaceState(null, '', encodeStateV2(expr, ctx, ['js']))
 }
 
 // ===== Toast =====
@@ -520,7 +568,7 @@ examplesSelect.addEventListener('change', () => {
 function init(): void {
   populateExamples()
 
-  const fromHash = decodeHash()
+  const fromHash = decodeState(window.location.hash)
   if (fromHash) {
     setExprValue(fromHash.expr)
     setCtxValue(fromHash.ctx)

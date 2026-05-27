@@ -1,4 +1,3 @@
-import { Xpr, XprError } from '@xpr-lang/xpr'
 import { EditorView, keymap } from '@codemirror/view'
 import type { ViewUpdate } from '@codemirror/view'
 import { Compartment, EditorState } from '@codemirror/state'
@@ -8,6 +7,8 @@ import { setDiagnostics } from '@codemirror/lint'
 import type { Diagnostic } from '@codemirror/lint'
 import { strFromU8, strToU8, unzlibSync, zlibSync } from 'fflate'
 import { xprLanguage } from './xpr-lang'
+import { JsDirectRuntime } from './runtimes'
+import type { RuntimeAdapter } from './runtimes'
 
 // ===== Examples =====
 type Example = { label: string; category: string; expr: string; ctx: string }
@@ -230,8 +231,11 @@ if (storedTheme) {
   document.documentElement.dataset.theme = storedTheme
 }
 
-// ===== XPR instance =====
-const xpr = new Xpr()
+// ===== Runtime adapter =====
+// W2.4: all evaluation goes through `RuntimeAdapter`. Swapping in the
+// Web Worker variant (W2.5) or adding Python/Go (W3.2/W3.3) is purely
+// a registration change; this call site stays.
+const runtime: RuntimeAdapter = new JsDirectRuntime()
 
 // ===== CodeMirror editors =====
 const initialTheme = getEffectiveTheme()
@@ -297,7 +301,7 @@ function setCtxValue(value: string): void {
 }
 
 // ===== Evaluation =====
-function evaluate(): void {
+async function evaluate(): Promise<void> {
   const expr = getExprValue().trim()
   const ctxRaw = getCtxValue().trim()
 
@@ -320,43 +324,37 @@ function evaluate(): void {
     }
   }
 
-  const t0 = performance.now()
-  try {
-    const result = xpr.evaluate(expr, ctx as Record<string, unknown>)
-    const elapsed = performance.now() - t0
-    const formatted = formatResult(result)
-    setOutput(outputJs, formatted, true)
+  const result = await runtime.evaluate(expr, ctx as Record<string, unknown>)
+  const elapsed = result.durationMs
+
+  if (result.success) {
+    setOutput(outputJs, formatResult(result.value), true)
     setStatus(`${elapsed.toFixed(1)}ms`, 'ok')
-  } catch (err) {
-    const elapsed = performance.now() - t0
-    const msg = err instanceof XprError ? err.message : String(err)
-    setOutput(outputJs, msg, false)
-    setStatus(`error · ${elapsed.toFixed(1)}ms`, 'error')
-    setExprDiagnosticFromError(err, msg)
+    return
+  }
+
+  const msg = result.error?.message ?? 'Unknown error'
+  setOutput(outputJs, msg, false)
+  setStatus(`error · ${elapsed.toFixed(1)}ms`, 'error')
+  if (result.error?.position !== undefined) {
+    setExprDiagnostic(result.error.position, msg)
   }
 }
 
 // ===== Inline diagnostics (CodeMirror lint) =====
-// XprError.position is a 0-indexed char offset (xpr-js/src/errors.ts:4),
-// default -1 = no position. setDiagnostics auto-installs the lint state
-// field on first dispatch (@codemirror/lint maybeEnableLint), so adding
-// a linter(...) extension would create a no-op callback that wipes our
-// imperative diagnostics on every doc change.
+// setDiagnostics auto-installs the lint state field on first dispatch
+// (@codemirror/lint maybeEnableLint), so adding a linter(...) extension
+// would create a no-op callback that wipes our imperative diagnostics on
+// every doc change.
 function clearExprDiagnostics(): void {
   exprView.dispatch(setDiagnostics(exprView.state, []))
 }
 
-function setExprDiagnosticFromError(err: unknown, msg: string): void {
-  if (!(err instanceof XprError) || err.position < 0) return
+function setExprDiagnostic(position: number, message: string): void {
   const docLen = exprView.state.doc.length
-  const from = Math.min(err.position, docLen)
+  const from = Math.min(position, docLen)
   const to = Math.min(from + 1, docLen)
-  const diagnostic: Diagnostic = {
-    from,
-    to,
-    severity: 'error',
-    message: msg,
-  }
+  const diagnostic: Diagnostic = { from, to, severity: 'error', message }
   exprView.dispatch(setDiagnostics(exprView.state, [diagnostic]))
 }
 
@@ -387,7 +385,7 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 function scheduleEval(): void {
   if (debounceTimer !== null) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
-    evaluate()
+    void evaluate()
     updateHash()
   }, 300)
 }
@@ -559,7 +557,7 @@ examplesSelect.addEventListener('change', () => {
   setExprValue(example.expr)
   setCtxValue(example.ctx)
   examplesSelect.value = ''
-  evaluate()
+  void evaluate()
   updateHash()
   exprView.focus()
 })
@@ -572,7 +570,7 @@ function init(): void {
   if (fromHash) {
     setExprValue(fromHash.expr)
     setCtxValue(fromHash.ctx)
-    evaluate()
+    void evaluate()
     return
   }
 
@@ -583,7 +581,7 @@ function init(): void {
   }
   setExprValue(def.expr)
   setCtxValue(def.ctx)
-  evaluate()
+  void evaluate()
 }
 
 init()

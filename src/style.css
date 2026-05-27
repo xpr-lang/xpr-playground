@@ -457,6 +457,41 @@ html, body {
   color: var(--text-subtle);
 }
 
+/* ===== CodeMirror hover tooltip (W2.2) =====
+ * Targets BOTH the CM-injected outer wrapper and our own inner div so the
+ * tooltip honours theme tokens in dark and light mode without depending on
+ * CodeMirror's default cm-darkMode heuristic.
+ */
+.cm-tooltip.cm-tooltip-hover {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  max-width: 420px;
+}
+
+.cm-hover-tooltip {
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.cm-hover-tooltip strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cm-hover-tooltip .muted {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+}
+
+.cm-hover-tooltip small {
+  color: var(--text-subtle);
+  font-size: 11px;
+}
+
 /* ===== Toast ===== */
 .toast {
   position: fixed;

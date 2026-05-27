@@ -9,6 +9,7 @@ import { autocompletion } from '@codemirror/autocomplete'
 import { strFromU8, strToU8, unzlibSync, zlibSync } from 'fflate'
 import { xprLanguage } from './xpr-lang'
 import { xprCompletions } from './xpr-completions'
+import { xprHover } from './xpr-hover'
 import { JsWorkerRuntime } from './runtimes'
 import type { RuntimeAdapter } from './runtimes'
 import * as storage from './storage'
@@ -250,6 +251,7 @@ const exprView = new EditorView({
       ...xprLanguage,
       themeCompartment.of(buildCodeMirrorTheme(initialTheme)),
       autocompletion({ override: [xprCompletions] }),
+      xprHover,
       keymap.of([...defaultKeymap, indentWithTab]),
       EditorView.lineWrapping,
       EditorView.updateListener.of((update: ViewUpdate) => {

@@ -198,6 +198,12 @@ const evalStatus = document.getElementById('eval-status') as HTMLSpanElement
 const examplesSelect = document.getElementById('examples-select') as HTMLSelectElement
 const shareBtn = document.getElementById('share-btn') as HTMLButtonElement
 const toast = document.getElementById('toast') as HTMLDivElement
+const exprEditorEl = document.getElementById('expr-editor')
+const ctxEditorEl = document.getElementById('ctx-editor')
+if (!exprEditorEl || !ctxEditorEl) {
+  console.error('XPR Playground: missing #expr-editor or #ctx-editor mount point')
+  throw new Error('Missing editor mount points')
+}
 
 // ===== XPR instance =====
 const xpr = new Xpr()
@@ -216,7 +222,7 @@ const exprView = new EditorView({
       }),
     ],
   }),
-  parent: document.getElementById('expr-editor')!,
+  parent: exprEditorEl,
 })
 
 const ctxView = new EditorView({
@@ -232,7 +238,7 @@ const ctxView = new EditorView({
       }),
     ],
   }),
-  parent: document.getElementById('ctx-editor')!,
+  parent: ctxEditorEl,
 })
 
 // ===== Editor value helpers =====
@@ -269,18 +275,10 @@ function evaluate(): void {
     return
   }
 
-  // Parse context
-  let ctx: Record<string, unknown> = {}
+  let ctx: unknown = {}
   if (ctxRaw && ctxRaw !== '{}') {
     try {
-      const parsed = JSON.parse(ctxRaw)
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-        ctx = parsed as Record<string, unknown>
-      } else {
-        setOutput(outputJs, 'Context must be a JSON object', false)
-        setStatus('Context error', 'error')
-        return
-      }
+      ctx = JSON.parse(ctxRaw)
     } catch {
       setOutput(outputJs, 'Invalid JSON in context', false)
       setStatus('JSON error', 'error')
@@ -288,10 +286,9 @@ function evaluate(): void {
     }
   }
 
-  // Evaluate
   const t0 = performance.now()
   try {
-    const result = xpr.evaluate(expr, ctx)
+    const result = xpr.evaluate(expr, ctx as Record<string, unknown>)
     const elapsed = performance.now() - t0
     const formatted = formatResult(result)
     setOutput(outputJs, formatted, true)
@@ -362,9 +359,20 @@ function scheduleEval(): void {
 }
 
 // ===== URL Hash sharing =====
+// UTF-8-safe base64 helpers (replaces deprecated escape/unescape).
+// Produces same bytes as old `btoa(unescape(encodeURIComponent(s)))`
+// so existing #e=...&c=... hashes still decode.
+function b64EncodeUtf8(s: string): string {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(s)))
+}
+
+function b64DecodeUtf8(s: string): string {
+  return new TextDecoder().decode(Uint8Array.from(atob(s), c => c.charCodeAt(0)))
+}
+
 function encodeHash(expr: string, ctx: string): string {
-  const e = btoa(unescape(encodeURIComponent(expr)))
-  const c = btoa(unescape(encodeURIComponent(ctx)))
+  const e = b64EncodeUtf8(expr)
+  const c = b64EncodeUtf8(ctx)
   return `#e=${e}&c=${c}`
 }
 
@@ -377,8 +385,8 @@ function decodeHash(): { expr: string; ctx: string } | null {
   if (!e) return null
   try {
     return {
-      expr: decodeURIComponent(escape(atob(e))),
-      ctx: c ? decodeURIComponent(escape(atob(c))) : '{}',
+      expr: b64DecodeUtf8(e),
+      ctx: c ? b64DecodeUtf8(c) : '{}',
     }
   } catch {
     return null
@@ -388,10 +396,7 @@ function decodeHash(): { expr: string; ctx: string } | null {
 function updateHash(): void {
   const expr = getExprValue()
   const ctx = getCtxValue()
-  if (!expr && !ctx) {
-    history.replaceState(null, '', window.location.pathname)
-    return
-  }
+  if (!expr && !ctx) return
   const hash = encodeHash(expr, ctx)
   history.replaceState(null, '', hash)
 }
@@ -477,7 +482,11 @@ function init(): void {
     return
   }
 
-  const def = EXAMPLES['filter']!
+  const def = EXAMPLES['filter']
+  if (!def) {
+    console.error('XPR Playground: missing default example "filter"')
+    return
+  }
   setExprValue(def.expr)
   setCtxValue(def.ctx)
   evaluate()

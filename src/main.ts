@@ -9,6 +9,7 @@ import { strFromU8, strToU8, unzlibSync, zlibSync } from 'fflate'
 import { xprLanguage } from './xpr-lang'
 import { JsWorkerRuntime } from './runtimes'
 import type { RuntimeAdapter } from './runtimes'
+import * as storage from './storage'
 
 // ===== Examples =====
 type Example = { label: string; category: string; expr: string; ctx: string }
@@ -381,6 +382,7 @@ function setStatus(text: string, cls: '' | 'ok' | 'error'): void {
 
 // ===== Debounce =====
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 function scheduleEval(): void {
   if (debounceTimer !== null) clearTimeout(debounceTimer)
@@ -388,6 +390,20 @@ function scheduleEval(): void {
     void evaluate()
     updateHash()
   }, 300)
+  scheduleSave()
+}
+
+// W2.6: 1s storage debounce is independent of the 300ms eval debounce.
+// Eval/hash should feel live; storage writes can lag without UX impact.
+function scheduleSave(): void {
+  if (saveTimer !== null) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    storage.save({
+      expr: getExprValue(),
+      ctx: getCtxValue(),
+      runtimes: ['js'],
+    })
+  }, 1000)
 }
 
 // ===== URL Hash sharing =====
@@ -563,6 +579,9 @@ examplesSelect.addEventListener('change', () => {
 })
 
 // ===== Init =====
+// Restoration precedence (W2.6): URL hash > localStorage > default example.
+// Hash represents explicit intent (shared link, deep link); localStorage is
+// just "last open tab" history that should never override a deep-linked URL.
 function init(): void {
   populateExamples()
 
@@ -570,6 +589,14 @@ function init(): void {
   if (fromHash) {
     setExprValue(fromHash.expr)
     setCtxValue(fromHash.ctx)
+    void evaluate()
+    return
+  }
+
+  const stored = storage.load()
+  if (stored) {
+    setExprValue(stored.expr)
+    setCtxValue(stored.ctx)
     void evaluate()
     return
   }

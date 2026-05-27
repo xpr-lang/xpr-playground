@@ -213,8 +213,10 @@ const outputJs = document.getElementById('output-js') as HTMLPreElement
 const evalStatus = document.getElementById('eval-status') as HTMLSpanElement
 const examplesSelect = document.getElementById('examples-select') as HTMLSelectElement
 const shareBtn = document.getElementById('share-btn') as HTMLButtonElement
+const formatBtn = document.getElementById('format-btn') as HTMLButtonElement
 const themeToggleBtn = document.getElementById('theme-toggle') as HTMLButtonElement
 const toast = document.getElementById('toast') as HTMLDivElement
+const cursorStatusEl = document.getElementById('cursor-status') as HTMLSpanElement | null
 const exprEditorEl = document.getElementById('expr-editor')
 const ctxEditorEl = document.getElementById('ctx-editor')
 if (!exprEditorEl || !ctxEditorEl) {
@@ -256,6 +258,7 @@ const exprView = new EditorView({
       EditorView.lineWrapping,
       EditorView.updateListener.of((update: ViewUpdate) => {
         if (update.docChanged) scheduleEval()
+        if (update.docChanged || update.selectionSet) updateCursorStatus()
       }),
     ],
   }),
@@ -340,11 +343,21 @@ async function evaluate(): Promise<void> {
   }
 
   const msg = result.error?.message ?? 'Unknown error'
-  setOutput(outputJs, msg, false)
+  const position = result.error?.position
+  const loc = position !== undefined ? offsetToLineCol(position) : null
+  renderError(outputJs, msg, loc)
   setStatus(`error · ${elapsed.toFixed(1)}ms`, 'error')
-  if (result.error?.position !== undefined) {
-    setExprDiagnostic(result.error.position, msg)
+  if (position !== undefined) {
+    setExprDiagnostic(position, msg)
   }
+}
+
+function offsetToLineCol(offset: number): { line: number; col: number } {
+  const doc = exprView.state.doc
+  // Clamp: stale errors from a previous longer doc can point past doc.length.
+  const safe = Math.max(0, Math.min(offset, doc.length))
+  const line = doc.lineAt(safe)
+  return { line: line.number, col: safe - line.from + 1 }
 }
 
 // ===== Inline diagnostics (CodeMirror lint) =====
@@ -372,7 +385,11 @@ function formatResult(value: unknown): string {
 
 function setOutput(el: HTMLPreElement, text: string | null, ok: boolean): void {
   if (text === null) {
-    el.innerHTML = '<span class="placeholder">—</span>'
+    el.replaceChildren()
+    const ph = document.createElement('span')
+    ph.className = 'placeholder'
+    ph.textContent = '—'
+    el.appendChild(ph)
     el.classList.remove('is-error')
   } else {
     el.textContent = text
@@ -380,9 +397,201 @@ function setOutput(el: HTMLPreElement, text: string | null, ok: boolean): void {
   }
 }
 
+function renderError(el: HTMLPreElement, message: string, loc: { line: number; col: number } | null): void {
+  el.replaceChildren()
+  el.classList.add('is-error')
+
+  // Match `TypeError:` / `Type error:` style prefixes; bolds the prefix only.
+  const prefixMatch = message.match(/^([A-Z][a-zA-Z]*\s?[Ee]rror):\s*(.+)$/s)
+  if (prefixMatch) {
+    const strong = document.createElement('strong')
+    strong.textContent = prefixMatch[1] + ':'
+    el.appendChild(strong)
+    el.appendChild(document.createTextNode(' ' + prefixMatch[2]))
+  } else {
+    el.appendChild(document.createTextNode(message))
+  }
+
+  if (loc) {
+    el.appendChild(document.createTextNode('\n'))
+    const locEl = document.createElement('span')
+    locEl.className = 'error-location'
+    locEl.dataset.testid = 'error-location'
+    locEl.textContent = `Ln ${loc.line}, Col ${loc.col}`
+    el.appendChild(locEl)
+  }
+}
+
 function setStatus(text: string, cls: '' | 'ok' | 'error'): void {
   evalStatus.textContent = text
   evalStatus.className = 'eval-status' + (cls ? ` ${cls}` : '')
+}
+
+function updateCursorStatus(): void {
+  if (!cursorStatusEl) return
+  const head = exprView.state.selection.main.head
+  const line = exprView.state.doc.lineAt(head)
+  cursorStatusEl.textContent = `Ln ${line.number}, Col ${head - line.from + 1}`
+}
+
+// Tokenises into code | string | template | regex segments, then applies
+// replacements only to `code` segments so string/template/regex contents are
+// inviolate. Not an AST; small heuristic passes are enough for XPR.
+function formatXprExpression(src: string): string {
+  type SegType = 'code' | 'str' | 'tpl' | 'regex'
+  const segments: Array<{ type: SegType; text: string }> = []
+  let codeBuf = ''
+  const flushCode = (): void => {
+    if (codeBuf) {
+      segments.push({ type: 'code', text: codeBuf })
+      codeBuf = ''
+    }
+  }
+  const isRegexContext = (buf: string): boolean => {
+    const t = buf.trimEnd()
+    if (!t) return true
+    const last = t[t.length - 1]
+    return /[=(,[{!&|<>+\-*%?:;]/.test(last ?? '')
+  }
+
+  let i = 0
+  while (i < src.length) {
+    const ch = src[i] ?? ''
+    if (ch === '"' || ch === "'") {
+      flushCode()
+      const q = ch
+      let s = q
+      i++
+      while (i < src.length && src[i] !== q) {
+        if (src[i] === '\\' && i + 1 < src.length) {
+          s += (src[i] ?? '') + (src[i + 1] ?? '')
+          i += 2
+        } else {
+          s += src[i] ?? ''
+          i++
+        }
+      }
+      if (i < src.length) { s += src[i] ?? ''; i++ }
+      segments.push({ type: 'str', text: s })
+      continue
+    }
+    if (ch === '`') {
+      flushCode()
+      let t = '`'
+      i++
+      while (i < src.length) {
+        const c = src[i] ?? ''
+        if (c === '`') { t += '`'; i++; break }
+        if (c === '\\' && i + 1 < src.length) {
+          t += c + (src[i + 1] ?? '')
+          i += 2
+          continue
+        }
+        if (c === '$' && src[i + 1] === '{') {
+          t += '${'
+          i += 2
+          let depth = 1
+          while (i < src.length && depth > 0) {
+            const cc = src[i] ?? ''
+            if (cc === '{') { depth++; t += cc; i++; continue }
+            if (cc === '}') { depth--; t += cc; i++; continue }
+            if (cc === '"' || cc === "'") {
+              const qq = cc
+              t += qq
+              i++
+              while (i < src.length && src[i] !== qq) {
+                if (src[i] === '\\' && i + 1 < src.length) {
+                  t += (src[i] ?? '') + (src[i + 1] ?? '')
+                  i += 2
+                } else { t += src[i] ?? ''; i++ }
+              }
+              if (i < src.length) { t += src[i] ?? ''; i++ }
+              continue
+            }
+            t += cc
+            i++
+          }
+          continue
+        }
+        t += c
+        i++
+      }
+      segments.push({ type: 'tpl', text: t })
+      continue
+    }
+    if (ch === '/' && isRegexContext(codeBuf)) {
+      let r = '/'
+      let j = i + 1
+      let ok = false
+      while (j < src.length) {
+        const c = src[j] ?? ''
+        if (c === '\\' && j + 1 < src.length) { r += c + (src[j + 1] ?? ''); j += 2; continue }
+        if (c === '\n') break
+        if (c === '/') { r += '/'; j++; ok = true; break }
+        r += c
+        j++
+      }
+      if (ok) {
+        while (j < src.length && /[gimsuy]/.test(src[j] ?? '')) { r += src[j] ?? ''; j++ }
+        flushCode()
+        segments.push({ type: 'regex', text: r })
+        i = j
+        continue
+      }
+    }
+    codeBuf += ch
+    i++
+  }
+  flushCode()
+
+  for (const seg of segments) {
+    if (seg.type !== 'code') continue
+    let s = seg.text
+    s = s.replace(/\s*=>\s*/g, ' => ')
+    s = s.replace(/\s*([=!<>]=|&&|\|\||\?\?)\s*/g, ' $1 ')
+    s = s.replace(/\s*\|>\s*/g, ' |> ')
+    // Single-char binary operators sandwiched between word/closing-paren on
+    // the left and word/opening-paren/string-start on the right. Lookaround
+    // prevents consuming the bordering chars so adjacent ops still match.
+    s = s.replace(/(?<=[a-zA-Z0-9_)\]])\s*([+\-*/%<>])\s*(?=[a-zA-Z0-9_("\[`'])/g, ' $1 ')
+    s = s.replace(/,(\S)/g, ', $1')
+    seg.text = s
+  }
+
+  let out = segments.map(s => s.text).join('')
+  if (out.length > 80 && out.includes('|>')) {
+    out = out.replace(/ \|> /g, '\n  |> ')
+  }
+  return out
+}
+
+function onFormatClick(): void {
+  const exprOld = getExprValue()
+  const exprNew = formatXprExpression(exprOld)
+  if (exprNew !== exprOld) {
+    const head = exprView.state.selection.main.head
+    const newPos = Math.min(head, exprNew.length)
+    exprView.dispatch({
+      changes: { from: 0, to: exprView.state.doc.length, insert: exprNew },
+      selection: { anchor: newPos, head: newPos },
+    })
+  }
+
+  const ctxOld = getCtxValue()
+  try {
+    const ctxNew = JSON.stringify(JSON.parse(ctxOld), null, 2)
+    if (ctxNew !== ctxOld) {
+      const head = ctxView.state.selection.main.head
+      const newPos = Math.min(head, ctxNew.length)
+      ctxView.dispatch({
+        changes: { from: 0, to: ctxView.state.doc.length, insert: ctxNew },
+        selection: { anchor: newPos, head: newPos },
+      })
+    }
+  } catch {
+    // Context is not valid JSON; leave it alone (don't fight the user).
+  }
+  exprView.focus()
 }
 
 // ===== Debounce =====
@@ -513,6 +722,8 @@ function showToast(msg: string): void {
   }, 2000)
 }
 
+formatBtn.addEventListener('click', onFormatClick)
+
 // ===== Share =====
 shareBtn.addEventListener('click', () => {
   updateHash()
@@ -617,3 +828,4 @@ function init(): void {
 }
 
 init()
+updateCursorStatus()

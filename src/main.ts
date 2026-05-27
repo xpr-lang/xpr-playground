@@ -7,12 +7,18 @@ import { json } from '@codemirror/lang-json'
 import { xprLanguage } from './xpr-lang'
 
 // ===== Examples =====
-const EXAMPLES: Record<string, { expr: string; ctx: string }> = {
+type Example = { label: string; category: string; expr: string; ctx: string }
+
+const EXAMPLES: Record<string, Example> = {
   map: {
+    label: 'Map: double array',
+    category: 'Basics',
     expr: '[1, 2, 3].map(x => x * 2)',
     ctx: '{}',
   },
   filter: {
+    label: 'Filter active items',
+    category: 'Basics',
     expr: 'items.filter(x => x.active).map(x => x.name)',
     ctx: JSON.stringify(
       {
@@ -27,46 +33,62 @@ const EXAMPLES: Record<string, { expr: string; ctx: string }> = {
     ),
   },
   template: {
+    label: 'Template literal',
+    category: 'Basics',
     expr: '`Hello ${name}, you have ${count} items`',
     ctx: JSON.stringify({ name: 'Alice', count: 3 }, null, 2),
   },
   optional: {
+    label: 'Optional chaining',
+    category: 'Basics',
     expr: 'user?.address?.city ?? "unknown"',
     ctx: JSON.stringify({ user: { address: null } }, null, 2),
   },
   reduce: {
+    label: 'Reduce: sum prices',
+    category: 'Basics',
     expr: 'items.reduce((sum, x) => sum + x.price, 0)',
     ctx: JSON.stringify({ items: [{ price: 10 }, { price: 20 }, { price: 5 }] }, null, 2),
   },
   let_bindings: {
+    label: 'Let bindings',
+    category: 'Basics',
     expr: 'let items = [1,2,3,4,5]; let big = items.filter(x => x > 2); big.map(x => x * 10)',
     ctx: '{}',
   },
   spread_merge: {
+    label: 'Spread merge',
+    category: 'Basics',
     expr: '{...defaults, ...overrides}',
     ctx: JSON.stringify({ defaults: { color: 'blue', size: 10 }, overrides: { color: 'red' } }, null, 2),
   },
   date_formatting: {
+    label: 'Date formatting',
+    category: 'Dates (v0.3)',
     expr: 'formatDate(parseDate("2024-06-15T10:30:45Z"), "yyyy-MM-dd HH:mm:ss")',
     ctx: '{}',
   },
   regex_extraction: {
+    label: 'Regex: extract all matches',
+    category: 'Regex (v0.3-v0.4)',
     expr: 'matchAll("Order #123, Order #456, Order #789", "\\\\d+")',
     ctx: '{}',
   },
-  negative_indexing_spread: {
-    expr: 'let nums = [3, 1, 4, 1, 5, 9]; [nums[-1], max(...nums)]',
-    ctx: '{}',
-  },
-  destructuring: {
-    expr: 'let {name, age = 0} = user; `${name} is ${age}`',
-    ctx: JSON.stringify({ user: { name: 'Alice', age: 30 } }, null, 2),
-  },
   regex_literals: {
+    label: 'Regex literals',
+    category: 'Regex (v0.3-v0.4)',
     expr: 'let emails = ["alice@example.com", "not-an-email", "bob@test.org"]; emails.filter(s => /^[\\w.]+@[\\w.]+$/.test(s))',
     ctx: '{}',
   },
+  destructuring: {
+    label: 'Object destructuring',
+    category: 'Destructuring (v0.4)',
+    expr: 'let {name, age = 0} = user; `${name} is ${age}`',
+    ctx: JSON.stringify({ user: { name: 'Alice', age: 30 } }, null, 2),
+  },
   destructuring_map: {
+    label: 'Destructuring in map',
+    category: 'Destructuring (v0.4)',
     expr: 'users.map(({name, role}) => `${name} (${role})`)',
     ctx: JSON.stringify(
       {
@@ -81,18 +103,42 @@ const EXAMPLES: Record<string, { expr: string; ctx: string }> = {
     ),
   },
   math_constants: {
+    label: 'Math constants (PI, pow)',
+    category: 'Math (v0.5)',
     expr: 'let radius = 5; let area = PI * pow(radius, 2); round(area * 100) / 100',
     ctx: '{}',
   },
   collection_helpers: {
+    label: 'Collection helpers (compact, unique)',
+    category: 'Collections (v0.5)',
     expr: 'let data = [3, null, 1, null, 4, 1, 5]; data.compact().unique().sortBy(x => x)',
     ctx: '{}',
   },
   type_checking: {
+    label: 'Type checking (partition)',
+    category: 'Type Checking (v0.5)',
     expr: 'let values = [1, "two", null, [3]]; values.partition(x => isNumber(x))',
     ctx: '{}',
   },
+  negative_indexing_spread: {
+    label: 'Negative indexing + spread',
+    category: 'Negative Indexing (v0.5)',
+    expr: 'let nums = [3, 1, 4, 1, 5, 9]; [nums[-1], max(...nums)]',
+    ctx: '{}',
+  },
 }
+
+// Examples whose category is not in this list are silently skipped.
+const CATEGORY_ORDER: readonly string[] = [
+  'Basics',
+  'Dates (v0.3)',
+  'Regex (v0.3-v0.4)',
+  'Destructuring (v0.4)',
+  'Math (v0.5)',
+  'Collections (v0.5)',
+  'Type Checking (v0.5)',
+  'Negative Indexing (v0.5)',
+]
 
 // ===== Dark theme for CodeMirror =====
 const xprTheme = EditorView.theme(
@@ -346,6 +392,37 @@ shareBtn.addEventListener('click', () => {
 })
 
 // ===== Examples =====
+function populateExamples(): void {
+  const groups = new Map<string, Array<{ key: string; label: string }>>()
+  for (const [key, { label, category }] of Object.entries(EXAMPLES)) {
+    let bucket = groups.get(category)
+    if (!bucket) {
+      bucket = []
+      groups.set(category, bucket)
+    }
+    bucket.push({ key, label })
+  }
+
+  const placeholder = document.createElement('option')
+  placeholder.value = ''
+  placeholder.textContent = 'Examples…'
+  examplesSelect.appendChild(placeholder)
+
+  for (const category of CATEGORY_ORDER) {
+    const items = groups.get(category)
+    if (!items) continue
+    const optgroup = document.createElement('optgroup')
+    optgroup.label = category
+    for (const { key, label } of items) {
+      const option = document.createElement('option')
+      option.value = key
+      option.textContent = label
+      optgroup.appendChild(option)
+    }
+    examplesSelect.appendChild(optgroup)
+  }
+}
+
 examplesSelect.addEventListener('change', () => {
   const key = examplesSelect.value
   if (!key) return
@@ -361,7 +438,8 @@ examplesSelect.addEventListener('change', () => {
 
 // ===== Init =====
 function init(): void {
-  // Load from URL hash if present
+  populateExamples()
+
   const fromHash = decodeHash()
   if (fromHash) {
     setExprValue(fromHash.expr)
@@ -370,7 +448,6 @@ function init(): void {
     return
   }
 
-  // Default: load the filter example
   const def = EXAMPLES['filter']!
   setExprValue(def.expr)
   setCtxValue(def.ctx)

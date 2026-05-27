@@ -5,7 +5,16 @@
   padding: 0;
 }
 
+/* ===== Theme tokens =====
+ * Resolution order (CSS specificity ties broken by source order):
+ *   1. :root[data-theme="dark"] / :root[data-theme="light"]  explicit user choice (set by main.ts from localStorage)
+ *   2. @media (prefers-color-scheme: <x>) { :root:not([data-theme]) ... }  first visit, no localStorage yet
+ *   3. :root fallback (dark)  browsers without prefers-color-scheme support
+ */
+
 :root {
+  color-scheme: light dark;
+
   --bg: #0f1117;
   --bg-surface: #161b22;
   --bg-elevated: #1c2128;
@@ -29,6 +38,90 @@
   --radius: 6px;
   --radius-lg: 10px;
   --header-height: 52px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1117;
+  --bg-surface: #161b22;
+  --bg-elevated: #1c2128;
+  --bg-hover: #21262d;
+  --border: #30363d;
+  --border-subtle: #21262d;
+  --text: #e6edf3;
+  --text-muted: #7d8590;
+  --text-subtle: #484f58;
+  --accent: #58a6ff;
+  --accent-hover: #79b8ff;
+  --green: #3fb950;
+  --red: #f85149;
+  --yellow: #d29922;
+  --purple: #bc8cff;
+  --orange: #ffa657;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-surface: #f6f8fa;
+  --bg-elevated: #ffffff;
+  --bg-hover: #eaeef2;
+  --border: #d0d7de;
+  --border-subtle: #d8dee4;
+  --text: #1f2328;
+  --text-muted: #59636e;
+  --text-subtle: #6e7781;
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --green: #1a7f37;
+  --red: #cf222e;
+  --yellow: #9a6700;
+  --purple: #8250df;
+  --orange: #bc4c00;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: #ffffff;
+    --bg-surface: #f6f8fa;
+    --bg-elevated: #ffffff;
+    --bg-hover: #eaeef2;
+    --border: #d0d7de;
+    --border-subtle: #d8dee4;
+    --text: #1f2328;
+    --text-muted: #59636e;
+    --text-subtle: #6e7781;
+    --accent: #0969da;
+    --accent-hover: #0550ae;
+    --green: #1a7f37;
+    --red: #cf222e;
+    --yellow: #9a6700;
+    --purple: #8250df;
+    --orange: #bc4c00;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #0f1117;
+    --bg-surface: #161b22;
+    --bg-elevated: #1c2128;
+    --bg-hover: #21262d;
+    --border: #30363d;
+    --border-subtle: #21262d;
+    --text: #e6edf3;
+    --text-muted: #7d8590;
+    --text-subtle: #484f58;
+    --accent: #58a6ff;
+    --accent-hover: #79b8ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --purple: #bc8cff;
+    --orange: #ffa657;
+  }
 }
 
 html, body {
@@ -123,6 +216,22 @@ html, body {
 .btn-ghost:hover {
   background: var(--bg-hover);
   color: var(--text);
+}
+
+.btn-icon {
+  padding: 5px;
+  width: 28px;
+  height: 28px;
+  justify-content: center;
+}
+
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+:root[data-theme="light"] .theme-toggle .icon-sun { display: block; }
+:root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .theme-toggle .icon-sun { display: block; }
+  :root:not([data-theme]) .theme-toggle .icon-moon { display: none; }
 }
 
 /* ===== Examples Select ===== */

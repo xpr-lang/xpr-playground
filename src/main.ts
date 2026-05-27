@@ -1,7 +1,7 @@
 import { Xpr, XprError } from '@xpr-lang/xpr'
 import { EditorView, keymap } from '@codemirror/view'
 import type { ViewUpdate } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import { defaultKeymap, indentWithTab } from '@codemirror/commands'
 import { json } from '@codemirror/lang-json'
 import { setDiagnostics } from '@codemirror/lint'
@@ -142,61 +142,72 @@ const CATEGORY_ORDER: readonly string[] = [
   'Negative Indexing (v0.5)',
 ]
 
-// ===== Dark theme for CodeMirror =====
-const xprTheme = EditorView.theme(
-  {
-    '&': {
-      flex: '1',
-      minHeight: '0',
-      background: 'transparent',
-      color: 'var(--text)',
-      fontFamily: 'var(--font-mono)',
-      fontSize: '13.5px',
-      lineHeight: '1.65',
-    },
-    '.cm-content': {
-      padding: '14px 16px',
-      caretColor: 'var(--accent)',
-    },
-    '&.cm-focused': {
-      outline: 'none',
-      background: 'rgba(88, 166, 255, 0.02)',
-    },
-    '.cm-scroller': {
-      overflow: 'auto',
-      fontFamily: 'inherit',
-    },
-    '.cm-cursor': {
-      borderLeftColor: 'var(--accent)',
-    },
-    '.cm-selectionBackground': {
-      background: 'rgba(88, 166, 255, 0.15)',
-    },
-    '&.cm-focused .cm-selectionBackground': {
-      background: 'rgba(88, 166, 255, 0.2)',
-    },
-    '.cm-gutters': {
-      display: 'none',
-    },
-    '.cm-placeholder': {
-      color: 'var(--text-subtle)',
-    },
-    // Syntax highlighting token classes
-    '.cm-keyword': { color: 'var(--purple)', fontWeight: '600' },
-    '.cm-number': { color: 'var(--orange)' },
-    '.cm-string': { color: 'var(--green)' },
-    '.cm-operator': { color: 'var(--accent)' },
-    '.cm-variableName': { color: 'var(--text)' },
-    '.cm-punctuation': { color: 'var(--text-muted)' },
+// ===== CodeMirror theme =====
+// All colors come from CSS variables, so swapping `:root[data-theme]` repaints
+// the editor for free. The `dark` flag below is the only thing that cannot be
+// CSS-driven (it influences CodeMirror's internal heuristics for selection /
+// cm-darkMode class), so we build two theme objects and hot-swap via Compartment.
+const themeRules = {
+  '&': {
+    flex: '1',
+    minHeight: '0',
+    background: 'transparent',
+    color: 'var(--text)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '13.5px',
+    lineHeight: '1.65',
   },
-  { dark: true }
-)
+  '.cm-content': {
+    padding: '14px 16px',
+    caretColor: 'var(--accent)',
+  },
+  '&.cm-focused': {
+    outline: 'none',
+  },
+  '.cm-scroller': {
+    overflow: 'auto',
+    fontFamily: 'inherit',
+  },
+  '.cm-cursor': {
+    borderLeftColor: 'var(--accent)',
+  },
+  '.cm-gutters': {
+    display: 'none',
+  },
+  '.cm-placeholder': {
+    color: 'var(--text-subtle)',
+  },
+  '.cm-keyword': { color: 'var(--purple)', fontWeight: '600' },
+  '.cm-number': { color: 'var(--orange)' },
+  '.cm-string': { color: 'var(--green)' },
+  '.cm-operator': { color: 'var(--accent)' },
+  '.cm-variableName': { color: 'var(--text)' },
+  '.cm-punctuation': { color: 'var(--text-muted)' },
+} as const
+
+const xprThemeDark = EditorView.theme(themeRules, { dark: true })
+const xprThemeLight = EditorView.theme(themeRules, { dark: false })
+
+const themeCompartment = new Compartment()
+
+type Theme = 'light' | 'dark'
+
+function getEffectiveTheme(): Theme {
+  const explicit = document.documentElement.dataset.theme
+  if (explicit === 'light' || explicit === 'dark') return explicit
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+}
+
+function buildCodeMirrorTheme(mode: Theme) {
+  return mode === 'dark' ? xprThemeDark : xprThemeLight
+}
 
 // ===== DOM refs =====
 const outputJs = document.getElementById('output-js') as HTMLPreElement
 const evalStatus = document.getElementById('eval-status') as HTMLSpanElement
 const examplesSelect = document.getElementById('examples-select') as HTMLSelectElement
 const shareBtn = document.getElementById('share-btn') as HTMLButtonElement
+const themeToggleBtn = document.getElementById('theme-toggle') as HTMLButtonElement
 const toast = document.getElementById('toast') as HTMLDivElement
 const exprEditorEl = document.getElementById('expr-editor')
 const ctxEditorEl = document.getElementById('ctx-editor')
@@ -205,16 +216,31 @@ if (!exprEditorEl || !ctxEditorEl) {
   throw new Error('Missing editor mount points')
 }
 
+// ===== Theme bootstrap =====
+const STORAGE_KEY_THEME = 'xpr-theme'
+
+function loadStoredTheme(): Theme | null {
+  const stored = localStorage.getItem(STORAGE_KEY_THEME)
+  return stored === 'light' || stored === 'dark' ? stored : null
+}
+
+const storedTheme = loadStoredTheme()
+if (storedTheme) {
+  document.documentElement.dataset.theme = storedTheme
+}
+
 // ===== XPR instance =====
 const xpr = new Xpr()
 
 // ===== CodeMirror editors =====
+const initialTheme = getEffectiveTheme()
+
 const exprView = new EditorView({
   state: EditorState.create({
     doc: '',
     extensions: [
       ...xprLanguage,
-      xprTheme,
+      themeCompartment.of(buildCodeMirrorTheme(initialTheme)),
       keymap.of([...defaultKeymap, indentWithTab]),
       EditorView.lineWrapping,
       EditorView.updateListener.of((update: ViewUpdate) => {
@@ -230,7 +256,7 @@ const ctxView = new EditorView({
     doc: '{}',
     extensions: [
       json(),
-      xprTheme,
+      themeCompartment.of(buildCodeMirrorTheme(initialTheme)),
       keymap.of([...defaultKeymap, indentWithTab]),
       EditorView.lineWrapping,
       EditorView.updateListener.of((update: ViewUpdate) => {
@@ -240,6 +266,13 @@ const ctxView = new EditorView({
   }),
   parent: ctxEditorEl,
 })
+
+function applyCodeMirrorTheme(mode: Theme): void {
+  const theme = buildCodeMirrorTheme(mode)
+  const effect = themeCompartment.reconfigure(theme)
+  exprView.dispatch({ effects: effect })
+  ctxView.dispatch({ effects: effect })
+}
 
 // ===== Editor value helpers =====
 function getExprValue(): string {
@@ -423,6 +456,19 @@ shareBtn.addEventListener('click', () => {
       showToast('Copy this URL: ' + url)
     }
   )
+})
+
+// ===== Theme toggle =====
+themeToggleBtn.addEventListener('click', () => {
+  const next: Theme = getEffectiveTheme() === 'dark' ? 'light' : 'dark'
+  document.documentElement.dataset.theme = next
+  localStorage.setItem(STORAGE_KEY_THEME, next)
+  applyCodeMirrorTheme(next)
+})
+
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+  if (loadStoredTheme()) return
+  applyCodeMirrorTheme(getEffectiveTheme())
 })
 
 // ===== Examples =====

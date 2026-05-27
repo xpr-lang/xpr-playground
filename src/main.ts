@@ -4,6 +4,8 @@ import type { ViewUpdate } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { defaultKeymap, indentWithTab } from '@codemirror/commands'
 import { json } from '@codemirror/lang-json'
+import { setDiagnostics } from '@codemirror/lint'
+import type { Diagnostic } from '@codemirror/lint'
 import { xprLanguage } from './xpr-lang'
 
 // ===== Examples =====
@@ -259,6 +261,8 @@ function evaluate(): void {
   const expr = getExprValue().trim()
   const ctxRaw = getCtxValue().trim()
 
+  clearExprDiagnostics()
+
   if (!expr) {
     setOutput(outputJs, null, true)
     setStatus('', '')
@@ -297,7 +301,32 @@ function evaluate(): void {
     const msg = err instanceof XprError ? err.message : String(err)
     setOutput(outputJs, msg, false)
     setStatus(`error · ${elapsed.toFixed(1)}ms`, 'error')
+    setExprDiagnosticFromError(err, msg)
   }
+}
+
+// ===== Inline diagnostics (CodeMirror lint) =====
+// XprError.position is a 0-indexed char offset (xpr-js/src/errors.ts:4),
+// default -1 = no position. setDiagnostics auto-installs the lint state
+// field on first dispatch (@codemirror/lint maybeEnableLint), so adding
+// a linter(...) extension would create a no-op callback that wipes our
+// imperative diagnostics on every doc change.
+function clearExprDiagnostics(): void {
+  exprView.dispatch(setDiagnostics(exprView.state, []))
+}
+
+function setExprDiagnosticFromError(err: unknown, msg: string): void {
+  if (!(err instanceof XprError) || err.position < 0) return
+  const docLen = exprView.state.doc.length
+  const from = Math.min(err.position, docLen)
+  const to = Math.min(from + 1, docLen)
+  const diagnostic: Diagnostic = {
+    from,
+    to,
+    severity: 'error',
+    message: msg,
+  }
+  exprView.dispatch(setDiagnostics(exprView.state, [diagnostic]))
 }
 
 function formatResult(value: unknown): string {

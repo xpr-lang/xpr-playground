@@ -7,7 +7,7 @@ import { setDiagnostics } from '@codemirror/lint'
 import type { Diagnostic } from '@codemirror/lint'
 import { strFromU8, strToU8, unzlibSync, zlibSync } from 'fflate'
 import { xprLanguage } from './xpr-lang'
-import { JsDirectRuntime } from './runtimes'
+import { JsWorkerRuntime } from './runtimes'
 import type { RuntimeAdapter } from './runtimes'
 
 // ===== Examples =====
@@ -232,10 +232,10 @@ if (storedTheme) {
 }
 
 // ===== Runtime adapter =====
-// W2.4: all evaluation goes through `RuntimeAdapter`. Swapping in the
-// Web Worker variant (W2.5) or adding Python/Go (W3.2/W3.3) is purely
-// a registration change; this call site stays.
-const runtime: RuntimeAdapter = new JsDirectRuntime()
+// W2.5: `JsWorkerRuntime` off-loads `xpr.evaluate` to a persistent Web
+// Worker so pathological expressions stall the worker, not the main thread.
+// `JsDirectRuntime` is kept exported as a future opt-in fallback (Phase D).
+const runtime: RuntimeAdapter = new JsWorkerRuntime()
 
 // ===== CodeMirror editors =====
 const initialTheme = getEffectiveTheme()

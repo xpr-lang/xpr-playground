@@ -8,11 +8,8 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "typescript": "^5.9.3",
     "vite": "^8.0.0"
-  },
-  "peerDependencies": {
-    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

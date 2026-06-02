@@ -624,7 +624,8 @@ html, body {
 }
 
 .result-panel-load,
-.result-panel-loading {
+.result-panel-loading,
+.result-panel-failure {
   display: none;
   flex: 1;
   flex-direction: column;
@@ -634,10 +635,17 @@ html, body {
   padding: 16px;
   text-align: center;
 }
+/* data-state machine (W3.4 collapsed/loading/ready, W3.6 timeout/crashed). Each
+   state reveals exactly one body block; .result-output is the implicit "ready"
+   body, hidden whenever a non-ready block is shown. */
 .result-panel[data-state="collapsed"] .result-output { display: none; }
 .result-panel[data-state="collapsed"] .result-panel-load { display: flex; }
 .result-panel[data-state="loading"] .result-output { display: none; }
 .result-panel[data-state="loading"] .result-panel-loading { display: flex; }
+.result-panel[data-state="timeout"] .result-output,
+.result-panel[data-state="crashed"] .result-output { display: none; }
+.result-panel[data-state="timeout"] .result-panel-failure,
+.result-panel[data-state="crashed"] .result-panel-failure { display: flex; }
 
 .result-panel-load {
   border: none;
@@ -677,7 +685,90 @@ html, body {
   to { transform: rotate(360deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .loading-spinner { animation: spin 2s linear infinite; }
+  .loading-spinner,
+  .busy-spinner { animation-duration: 2s; }
+  .loading-bar { transition: none; }
+}
+
+.loading-progress {
+  width: 70%;
+  max-width: 180px;
+  height: 4px;
+  margin-top: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.loading-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+/* W3.6: per-eval busy indicator. The output stays visible (dimmed) so a re-eval
+   never blanks the last result; a small header spinner + aria-busy signal work. */
+.result-panel-busy {
+  display: none;
+  align-items: center;
+  margin-left: 6px;
+}
+.result-panel.is-busy .result-panel-busy {
+  display: inline-flex;
+}
+.result-panel.is-busy .result-output {
+  opacity: 0.5;
+}
+.busy-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.result-panel-failure {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.result-panel-failure .failure-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.result-panel[data-state="crashed"] .failure-title {
+  color: var(--red);
+}
+.result-panel-failure .failure-detail {
+  font-size: 11px;
+  color: var(--text-subtle);
+  font-family: var(--font-mono);
+  max-width: 90%;
+  word-break: break-word;
+}
+.result-panel-failure .failure-detail:empty {
+  display: none;
+}
+.result-panel-recover {
+  margin-top: 2px;
+  padding: 4px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.result-panel-recover:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-hover);
 }
 
 .editor-statusbar {

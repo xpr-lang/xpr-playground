@@ -15,7 +15,10 @@ const RUNTIME_LABEL: Record<RuntimeName, string> = { js: 'JS', python: 'Python',
 
 const DOCS_URL = 'https://xpr-lang.github.io/xpr-docs/'
 
-type PanelState = 'collapsed' | 'loading' | 'ready'
+// Each value maps 1:1 to a body block in index.html via the [data-state] CSS
+// rules. "Busy" is deliberately NOT a state but an orthogonal class, so a re-eval
+// keeps the last result visible (dimmed) under the spinner instead of blanking it.
+type PanelState = 'collapsed' | 'loading' | 'ready' | 'timeout' | 'crashed'
 
 interface PanelRefs {
   panel: HTMLElement
@@ -25,6 +28,12 @@ interface PanelRefs {
   tab: HTMLButtonElement
   loadBtn: HTMLButtonElement
   loadingText: HTMLElement | null
+  loadingBar: HTMLElement | null
+  loadingProgress: HTMLElement | null
+  failureTitle: HTMLElement
+  failureDetail: HTMLElement
+  recoverBtn: HTMLButtonElement
+  recover: (() => void) | null
 }
 
 export interface RuntimeMatrixHooks {
@@ -94,7 +103,10 @@ export class RuntimeMatrix {
     this.clearDivergence()
     const tasks: Array<Promise<EvaluationResult | null>> = []
     for (const name of this.active) {
-      if (!this.adapters[name].isReady()) continue
+      if (!this.adapters[name].isReady()) {
+        this.setBusy(name, false)
+        continue
+      }
       tasks.push(this.evaluateOne(name, expr, ctx, gen))
     }
     const settled = await Promise.all(tasks)
@@ -107,6 +119,8 @@ export class RuntimeMatrix {
     this.generation++
     this.clearDivergence()
     for (const name of this.active) {
+      this.setBusy(name, false)
+      if (this.refs[name].panel.dataset.state === 'loading') continue
       this.setPanelState(name, 'ready')
       setOutput(this.refs[name].output, null, true)
       this.setStatus(name, '', '')
@@ -117,6 +131,8 @@ export class RuntimeMatrix {
     this.generation++
     this.clearDivergence()
     for (const name of this.active) {
+      this.setBusy(name, false)
+      if (this.refs[name].panel.dataset.state === 'loading') continue
       this.setPanelState(name, 'ready')
       setOutput(this.refs[name].output, message, false)
       this.setStatus(name, 'error', 'error')
@@ -137,9 +153,7 @@ export class RuntimeMatrix {
       try {
         await adapter.initialize((p) => this.setLoadingProgress(name, p))
       } catch (err) {
-        this.active.delete(name)
-        this.onActiveChange(this.getActiveRuntimes())
-        this.renderInitError(name, err)
+        this.renderFailure(name, classifyInitFailure(err), () => void this.resetRuntime(name))
         return
       }
     }
@@ -154,18 +168,29 @@ export class RuntimeMatrix {
     ctx: Record<string, unknown>,
     gen: number
   ): Promise<EvaluationResult | null> {
+    this.setBusy(name, true)
     let result: EvaluationResult
     try {
       result = await this.adapters[name].evaluate(expr, ctx)
     } catch (err) {
-      if (gen !== this.generation) return null
       const message = err instanceof Error ? err.message : String(err)
-      this.setPanelState(name, 'ready')
-      setOutput(this.refs[name].output, message, false)
-      this.setStatus(name, 'error', 'error')
-      return { runtime: name, success: false, error: { message }, durationMs: 0 }
+      result = { runtime: name, success: false, error: { message }, durationMs: 0 }
     }
     if (gen !== this.generation) return null
+    this.setBusy(name, false)
+
+    if (!result.success) {
+      const kind = classifyEvalFailure(result.error?.message ?? '')
+      if (kind === 'timeout') {
+        this.renderFailure(name, 'timeout', () => this.requestEvaluate())
+        return result
+      }
+      if (kind === 'crashed') {
+        this.renderFailure(name, 'crashed', () => void this.resetRuntime(name))
+        return result
+      }
+    }
+
     this.setPanelState(name, 'ready')
     this.renderResult(name, result)
     return result
@@ -191,16 +216,46 @@ export class RuntimeMatrix {
     }
   }
 
-  private renderInitError(name: RuntimeName, err: unknown): void {
+  private renderFailure(name: RuntimeName, kind: 'timeout' | 'crashed', recover: () => void): void {
+    const refs = this.refs[name]
+    this.setBusy(name, false)
+    refs.recover = recover
+    refs.failureTitle.textContent = kind === 'timeout' ? 'Evaluation timed out' : 'Runtime crashed'
+    refs.recoverBtn.textContent = kind === 'timeout' ? 'Retry' : 'Reset'
+    refs.failureDetail.textContent =
+      kind === 'timeout'
+        ? `${this.adapters[name].displayName} exceeded its time budget.`
+        : `${this.adapters[name].displayName} runtime stopped responding.`
+    this.setPanelState(name, kind)
+    this.setStatus(name, kind === 'timeout' ? 'timed out' : 'crashed', 'error')
+  }
+
+  // Crash/init recovery: full respawn via the adapter contract (terminate then
+  // initialize) before re-running the shared evaluate() pipeline. The generation
+  // bump discards any in-flight eval whose worker terminate() is about to settle.
+  private async resetRuntime(name: RuntimeName): Promise<void> {
+    const adapter = this.adapters[name]
+    this.generation++
+    this.clearDivergence()
+    this.setBusy(name, false)
+    this.setPanelState(name, 'loading')
+    this.setLoadingProgress(name, 0)
+    adapter.terminate()
+    try {
+      await adapter.initialize((p) => this.setLoadingProgress(name, p))
+    } catch (err) {
+      this.renderFailure(name, classifyInitFailure(err), () => void this.resetRuntime(name))
+      return
+    }
     this.setPanelState(name, 'ready')
-    setOutput(this.refs[name].output, err instanceof Error ? err.message : String(err), false)
-    this.setStatus(name, 'init failed', 'error')
+    this.requestEvaluate()
   }
 
   private wireEvents(): void {
     for (const name of RUNTIME_ORDER) {
       this.refs[name].tab.addEventListener('click', () => void this.activate(name))
       this.refs[name].loadBtn.addEventListener('click', () => void this.activate(name))
+      this.refs[name].recoverBtn.addEventListener('click', () => this.refs[name].recover?.())
     }
   }
 
@@ -219,8 +274,18 @@ export class RuntimeMatrix {
   }
 
   private setLoadingProgress(name: RuntimeName, progress: number): void {
-    const el = this.refs[name].loadingText
-    if (el) el.textContent = `Loading ${this.adapters[name].displayName}… ${Math.round(progress)}%`
+    const refs = this.refs[name]
+    const pct = Math.round(progress)
+    if (refs.loadingText) refs.loadingText.textContent = `Loading ${this.adapters[name].displayName}… ${pct}%`
+    if (refs.loadingBar) refs.loadingBar.style.width = `${pct}%`
+    refs.loadingProgress?.setAttribute('aria-valuenow', String(pct))
+  }
+
+  private setBusy(name: RuntimeName, busy: boolean): void {
+    const panel = this.refs[name].panel
+    panel.classList.toggle('is-busy', busy)
+    if (busy) panel.setAttribute('aria-busy', 'true')
+    else panel.removeAttribute('aria-busy')
   }
 
   private setStatus(name: RuntimeName, text: string, cls: '' | 'ok' | 'error'): void {
@@ -255,13 +320,50 @@ export class RuntimeMatrix {
   }
 }
 
+// The adapters resolve (never reject) eval failures as `success:false` with a
+// message; they carry no machine-readable kind, so the panel state is inferred
+// from that message. "timed out" wins first because a sibling-timeout teardown
+// message also contains it. Anything that is neither a timeout nor a worker
+// fault stays an ordinary error (a user's XprError keeps its inline rendering).
+function classifyEvalFailure(message: string): 'timeout' | 'crashed' | 'error' {
+  const m = message.toLowerCase()
+  if (m.includes('timed out')) return 'timeout'
+  if (
+    m.includes('crashed') ||
+    m.includes('deserialized') ||
+    m.includes('not ready') ||
+    m.includes('terminated') ||
+    m.includes('failed to initialize')
+  ) {
+    return 'crashed'
+  }
+  return 'error'
+}
+
+function classifyInitFailure(err: unknown): 'timeout' | 'crashed' {
+  const message = err instanceof Error ? err.message : String(err)
+  return message.toLowerCase().includes('timed out') ? 'timeout' : 'crashed'
+}
+
 function queryRefs(name: RuntimeName): PanelRefs {
   const panel = document.getElementById(`result-${name}`)
   const output = document.getElementById(`output-${name}`)
   const status = document.getElementById(`status-${name}`)
   const tab = document.getElementById(`tab-${name}`)
   const loadBtn = panel?.querySelector<HTMLButtonElement>('.result-panel-load')
-  if (!panel || !(output instanceof HTMLPreElement) || !status || !(tab instanceof HTMLButtonElement) || !loadBtn) {
+  const failureTitle = panel?.querySelector<HTMLElement>('.failure-title')
+  const failureDetail = panel?.querySelector<HTMLElement>('.failure-detail')
+  const recoverBtn = panel?.querySelector<HTMLButtonElement>('.result-panel-recover')
+  if (
+    !panel ||
+    !(output instanceof HTMLPreElement) ||
+    !status ||
+    !(tab instanceof HTMLButtonElement) ||
+    !loadBtn ||
+    !failureTitle ||
+    !failureDetail ||
+    !recoverBtn
+  ) {
     throw new Error(`RuntimeMatrix: missing DOM nodes for runtime "${name}"`)
   }
   const badge = document.createElement('span')
@@ -277,6 +379,12 @@ function queryRefs(name: RuntimeName): PanelRefs {
     tab,
     loadBtn,
     loadingText: panel.querySelector<HTMLElement>('.loading-text'),
+    loadingBar: panel.querySelector<HTMLElement>('.loading-bar'),
+    loadingProgress: panel.querySelector<HTMLElement>('.loading-progress'),
+    failureTitle,
+    failureDetail,
+    recoverBtn,
+    recover: null,
   }
 }
 

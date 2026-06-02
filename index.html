@@ -25,6 +25,7 @@
   </head>
   <body>
     <div id="app">
+      <a href="#main" class="skip-nav">Skip to main content</a>
       <header class="header">
         <div class="header-left">
           <span class="logo">XPR</span>
@@ -51,7 +52,7 @@
         </div>
       </header>
 
-      <main class="main">
+      <main class="main" id="main" tabindex="-1">
         <div class="editors-row">
           <div class="editor-pane">
             <div class="pane-label">Expression</div>
@@ -85,7 +86,7 @@
                 <span class="result-panel-status eval-status" id="status-js"></span>
                 <span class="result-panel-busy" data-testid="busy-js" aria-hidden="true"><span class="busy-spinner"></span></span>
               </div>
-              <pre class="result-output" id="output-js"><span class="placeholder">—</span></pre>
+              <pre class="result-output" id="output-js" aria-live="polite"><span class="placeholder">—</span></pre>
               <button class="result-panel-load" data-testid="load-js" type="button"><span class="load-title">Click to load JavaScript</span><span class="load-hint">ready instantly</span></button>
               <div class="result-panel-loading" data-testid="loading-js" aria-busy="true"><span class="loading-spinner" aria-hidden="true"></span><span class="loading-text">Loading…</span><span class="loading-progress" role="progressbar" aria-label="Load progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="loading-bar"></span></span></div>
               <div class="result-panel-failure" data-testid="failure-js"><span class="failure-title">Evaluation timed out</span><span class="failure-detail"></span><button class="result-panel-recover" data-testid="recover-js" type="button">Retry</button></div>
@@ -97,7 +98,7 @@
                 <span class="result-panel-status eval-status" id="status-python"></span>
                 <span class="result-panel-busy" data-testid="busy-python" aria-hidden="true"><span class="busy-spinner"></span></span>
               </div>
-              <pre class="result-output" id="output-python"><span class="placeholder">—</span></pre>
+              <pre class="result-output" id="output-python" aria-live="polite"><span class="placeholder">—</span></pre>
               <button class="result-panel-load" data-testid="load-python" type="button"><span class="load-title">Click to load Python</span><span class="load-hint">~3s on first load</span></button>
               <div class="result-panel-loading" data-testid="loading-python" aria-busy="true"><span class="loading-spinner" aria-hidden="true"></span><span class="loading-text">Loading Python…</span><span class="loading-progress" role="progressbar" aria-label="Load progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="loading-bar"></span></span></div>
               <div class="result-panel-failure" data-testid="failure-python"><span class="failure-title">Evaluation timed out</span><span class="failure-detail"></span><button class="result-panel-recover" data-testid="recover-python" type="button">Retry</button></div>
@@ -109,7 +110,7 @@
                 <span class="result-panel-status eval-status" id="status-go"></span>
                 <span class="result-panel-busy" data-testid="busy-go" aria-hidden="true"><span class="busy-spinner"></span></span>
               </div>
-              <pre class="result-output" id="output-go"><span class="placeholder">—</span></pre>
+              <pre class="result-output" id="output-go" aria-live="polite"><span class="placeholder">—</span></pre>
               <button class="result-panel-load" data-testid="load-go" type="button"><span class="load-title">Click to load Go</span><span class="load-hint">~1s on first load</span></button>
               <div class="result-panel-loading" data-testid="loading-go" aria-busy="true"><span class="loading-spinner" aria-hidden="true"></span><span class="loading-text">Loading Go…</span><span class="loading-progress" role="progressbar" aria-label="Load progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="loading-bar"></span></span></div>
               <div class="result-panel-failure" data-testid="failure-go"><span class="failure-title">Evaluation timed out</span><span class="failure-detail"></span><button class="result-panel-recover" data-testid="recover-go" type="button">Reset</button></div>

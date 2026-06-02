@@ -22,8 +22,8 @@
   --border: #30363d;
   --border-subtle: #21262d;
   --text: #e6edf3;
-  --text-muted: #7d8590;
-  --text-subtle: #484f58;
+  --text-muted: #8b949e;
+  --text-subtle: #838c96;
   --accent: #58a6ff;
   --accent-hover: #79b8ff;
   --green: #3fb950;
@@ -49,8 +49,8 @@
   --border: #30363d;
   --border-subtle: #21262d;
   --text: #e6edf3;
-  --text-muted: #7d8590;
-  --text-subtle: #484f58;
+  --text-muted: #8b949e;
+  --text-subtle: #838c96;
   --accent: #58a6ff;
   --accent-hover: #79b8ff;
   --green: #3fb950;
@@ -70,7 +70,7 @@
   --border-subtle: #d8dee4;
   --text: #1f2328;
   --text-muted: #59636e;
-  --text-subtle: #6e7781;
+  --text-subtle: #656d76;
   --accent: #0969da;
   --accent-hover: #0550ae;
   --green: #1a7f37;
@@ -91,7 +91,7 @@
     --border-subtle: #d8dee4;
     --text: #1f2328;
     --text-muted: #59636e;
-    --text-subtle: #6e7781;
+    --text-subtle: #656d76;
     --accent: #0969da;
     --accent-hover: #0550ae;
     --green: #1a7f37;
@@ -112,8 +112,8 @@
     --border: #30363d;
     --border-subtle: #21262d;
     --text: #e6edf3;
-    --text-muted: #7d8590;
-    --text-subtle: #484f58;
+    --text-muted: #8b949e;
+    --text-subtle: #838c96;
     --accent: #58a6ff;
     --accent-hover: #79b8ff;
     --green: #3fb950;
@@ -142,6 +142,40 @@ html, body {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+}
+
+/* ===== Accessibility (W5.3): skip-nav + keyboard focus ===== */
+.skip-nav {
+  position: absolute;
+  top: -56px;
+  left: 8px;
+  z-index: 200;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: var(--radius);
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+.skip-nav:focus {
+  top: 8px;
+}
+
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.editor-pane:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skip-nav { transition: none; }
 }
 
 /* ===== Header ===== */
@@ -429,19 +463,19 @@ html, body {
 }
 
 .runtime-badge.js {
-  background: rgba(255, 166, 87, 0.15);
+  background: var(--bg-elevated);
   color: var(--orange);
   border: 1px solid rgba(255, 166, 87, 0.3);
 }
 
 .runtime-badge.python {
-  background: rgba(88, 166, 255, 0.15);
+  background: var(--bg-elevated);
   color: var(--accent);
   border: 1px solid rgba(88, 166, 255, 0.3);
 }
 
 .runtime-badge.go {
-  background: rgba(63, 185, 80, 0.15);
+  background: var(--bg-elevated);
   color: var(--green);
   border: 1px solid rgba(63, 185, 80, 0.3);
 }

@@ -267,6 +267,7 @@ const exprView = new EditorView({
     doc: '',
     extensions: [
       ...xprLanguage,
+      EditorView.contentAttributes.of({ 'aria-label': 'XPR expression editor' }),
       themeCompartment.of(buildCodeMirrorTheme(initialTheme)),
       autocompletion({ override: [xprCompletions] }),
       xprHover,
@@ -286,6 +287,7 @@ const ctxView = new EditorView({
     doc: '{}',
     extensions: [
       json(),
+      EditorView.contentAttributes.of({ 'aria-label': 'JSON context editor' }),
       themeCompartment.of(buildCodeMirrorTheme(initialTheme)),
       keymap.of([...defaultKeymap, indentWithTab]),
       EditorView.lineWrapping,
@@ -296,6 +298,12 @@ const ctxView = new EditorView({
   }),
   parent: ctxEditorEl,
 })
+
+// WCAG 2.1.1: .cm-scroller scrolls independently when content overflows (long
+// context JSON on a narrow viewport), so make the scroll container itself
+// keyboard-focusable to satisfy axe scrollable-region-focusable.
+exprView.scrollDOM.tabIndex = 0
+ctxView.scrollDOM.tabIndex = 0
 
 function applyCodeMirrorTheme(mode: Theme): void {
   const theme = buildCodeMirrorTheme(mode)

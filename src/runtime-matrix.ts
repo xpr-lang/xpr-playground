@@ -98,6 +98,19 @@ export class RuntimeMatrix {
     }
   }
 
+  // W3.7: warm the Go WASM off the activate() path so a later Go click hits the
+  // isReady() fast-path and evaluates instantly. No active flag, no data-state,
+  // no progress UI, no eval, and a failed warm is swallowed so it never surfaces;
+  // real activation still runs through activate() with its W3.6 states. No-op if
+  // the user already activated a heavy runtime (Go/Python) or Go is warm, which
+  // guards double-init and avoids competing with a load they just started.
+  prewarmGo(): void {
+    if (this.active.has('go') || this.active.has('python')) return
+    const go = this.adapters.go
+    if (go.isReady()) return
+    void go.initialize().catch(() => {})
+  }
+
   async evaluateAll(expr: string, ctx: Record<string, unknown>): Promise<void> {
     const gen = ++this.generation
     this.clearDivergence()

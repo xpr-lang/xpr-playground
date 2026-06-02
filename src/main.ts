@@ -779,3 +779,23 @@ function init(): void {
 
 init()
 updateCursorStatus()
+
+// ===== W3.7: idle pre-warm of the Go runtime =====
+// Warm the Go WASM during a browser idle slot so a later Go tab click is instant.
+// Python/Pyodide is intentionally never pre-warmed (multi-MB silent download).
+// Skipped when requestIdleCallback is absent (older Safari), or the connection
+// reports Save-Data / slow-2g. The 1s timer keeps the warm off the first-paint
+// critical path before yielding to a genuine idle slot (3s timeout as a backstop).
+function schedulePrewarmGo(): void {
+  if (typeof window.requestIdleCallback !== 'function') return
+
+  type SaveDataConnection = { saveData?: boolean; effectiveType?: string }
+  const connection = (navigator as Navigator & { connection?: SaveDataConnection }).connection
+  if (connection?.saveData === true || connection?.effectiveType === 'slow-2g') return
+
+  setTimeout(() => {
+    window.requestIdleCallback(() => matrix.prewarmGo(), { timeout: 3000 })
+  }, 1000)
+}
+
+schedulePrewarmGo()

@@ -10,8 +10,8 @@ import { strFromU8, strToU8, unzlibSync, zlibSync } from 'fflate'
 import { xprLanguage } from './xpr-lang'
 import { xprCompletions } from './xpr-completions'
 import { xprHover } from './xpr-hover'
-import { JsWorkerRuntime } from './runtimes'
-import type { RuntimeAdapter } from './runtimes'
+import { GoRuntime, JsWorkerRuntime, PythonRuntime } from './runtimes'
+import { RuntimeMatrix } from './runtime-matrix'
 import * as storage from './storage'
 
 // ===== Examples =====
@@ -209,11 +209,10 @@ function buildCodeMirrorTheme(mode: Theme) {
 }
 
 // ===== DOM refs =====
-const outputJs = document.getElementById('output-js') as HTMLPreElement
-const evalStatus = document.getElementById('eval-status') as HTMLSpanElement
 const examplesSelect = document.getElementById('examples-select') as HTMLSelectElement
 const shareBtn = document.getElementById('share-btn') as HTMLButtonElement
 const formatBtn = document.getElementById('format-btn') as HTMLButtonElement
+const reevalBtn = document.getElementById('reeval-btn') as HTMLButtonElement
 const themeToggleBtn = document.getElementById('theme-toggle') as HTMLButtonElement
 const toast = document.getElementById('toast') as HTMLDivElement
 const cursorStatusEl = document.getElementById('cursor-status') as HTMLSpanElement | null
@@ -237,11 +236,28 @@ if (storedTheme) {
   document.documentElement.dataset.theme = storedTheme
 }
 
-// ===== Runtime adapter =====
-// W2.5: `JsWorkerRuntime` off-loads `xpr.evaluate` to a persistent Web
-// Worker so pathological expressions stall the worker, not the main thread.
-// `JsDirectRuntime` is kept exported as a future opt-in fallback (Phase D).
-const runtime: RuntimeAdapter = new JsWorkerRuntime()
+// ===== Runtime matrix =====
+// W3.4: JS (persistent worker) is always active; Python and Go are terminate-per-eval
+// adapters that stay collapsed until the user activates their panel. The matrix owns
+// every result panel and drives them through the shared evaluate() pipeline below.
+const matrix = new RuntimeMatrix({
+  adapters: {
+    js: new JsWorkerRuntime(),
+    python: new PythonRuntime(),
+    go: new GoRuntime(),
+  },
+  hooks: {
+    setEditorDiagnostic: setExprDiagnostic,
+    offsetToLineCol,
+  },
+  onActiveChange: () => {
+    scheduleSave()
+    updateHash()
+  },
+  requestEvaluate: () => {
+    void evaluate()
+  },
+})
 
 // ===== CodeMirror editors =====
 const initialTheme = getEffectiveTheme()
@@ -317,39 +333,21 @@ async function evaluate(): Promise<void> {
   clearExprDiagnostics()
 
   if (!expr) {
-    setOutput(outputJs, null, true)
-    setStatus('', '')
+    matrix.clearAll()
     return
   }
 
-  let ctx: unknown = {}
+  let ctx: Record<string, unknown> = {}
   if (ctxRaw && ctxRaw !== '{}') {
     try {
-      ctx = JSON.parse(ctxRaw)
+      ctx = JSON.parse(ctxRaw) as Record<string, unknown>
     } catch {
-      setOutput(outputJs, 'Invalid JSON in context', false)
-      setStatus('JSON error', 'error')
+      matrix.showContextError('Invalid JSON in context')
       return
     }
   }
 
-  const result = await runtime.evaluate(expr, ctx as Record<string, unknown>)
-  const elapsed = result.durationMs
-
-  if (result.success) {
-    setOutput(outputJs, formatResult(result.value), true)
-    setStatus(`${elapsed.toFixed(1)}ms`, 'ok')
-    return
-  }
-
-  const msg = result.error?.message ?? 'Unknown error'
-  const position = result.error?.position
-  const loc = position !== undefined ? offsetToLineCol(position) : null
-  renderError(outputJs, msg, loc)
-  setStatus(`error · ${elapsed.toFixed(1)}ms`, 'error')
-  if (position !== undefined) {
-    setExprDiagnostic(position, msg)
-  }
+  await matrix.evaluateAll(expr, ctx)
 }
 
 function offsetToLineCol(offset: number): { line: number; col: number } {
@@ -375,56 +373,6 @@ function setExprDiagnostic(position: number, message: string): void {
   const to = Math.min(from + 1, docLen)
   const diagnostic: Diagnostic = { from, to, severity: 'error', message }
   exprView.dispatch(setDiagnostics(exprView.state, [diagnostic]))
-}
-
-function formatResult(value: unknown): string {
-  if (value === null) return 'null'
-  if (value === undefined) return 'undefined'
-  return JSON.stringify(value, null, 2)
-}
-
-function setOutput(el: HTMLPreElement, text: string | null, ok: boolean): void {
-  if (text === null) {
-    el.replaceChildren()
-    const ph = document.createElement('span')
-    ph.className = 'placeholder'
-    ph.textContent = '—'
-    el.appendChild(ph)
-    el.classList.remove('is-error')
-  } else {
-    el.textContent = text
-    el.classList.toggle('is-error', !ok)
-  }
-}
-
-function renderError(el: HTMLPreElement, message: string, loc: { line: number; col: number } | null): void {
-  el.replaceChildren()
-  el.classList.add('is-error')
-
-  // Match `TypeError:` / `Type error:` style prefixes; bolds the prefix only.
-  const prefixMatch = message.match(/^([A-Z][a-zA-Z]*\s?[Ee]rror):\s*(.+)$/s)
-  if (prefixMatch) {
-    const strong = document.createElement('strong')
-    strong.textContent = prefixMatch[1] + ':'
-    el.appendChild(strong)
-    el.appendChild(document.createTextNode(' ' + prefixMatch[2]))
-  } else {
-    el.appendChild(document.createTextNode(message))
-  }
-
-  if (loc) {
-    el.appendChild(document.createTextNode('\n'))
-    const locEl = document.createElement('span')
-    locEl.className = 'error-location'
-    locEl.dataset.testid = 'error-location'
-    locEl.textContent = `Ln ${loc.line}, Col ${loc.col}`
-    el.appendChild(locEl)
-  }
-}
-
-function setStatus(text: string, cls: '' | 'ok' | 'error'): void {
-  evalStatus.textContent = text
-  evalStatus.className = 'eval-status' + (cls ? ` ${cls}` : '')
 }
 
 function updateCursorStatus(): void {
@@ -615,7 +563,7 @@ function scheduleSave(): void {
     storage.save({
       expr: getExprValue(),
       ctx: getCtxValue(),
-      runtimes: ['js'],
+      runtimes: matrix.getActiveRuntimes(),
     })
   }, 1000)
 }
@@ -705,9 +653,7 @@ function updateHash(): void {
   const expr = getExprValue()
   const ctx = getCtxValue()
   if (!expr && !ctx) return
-  // Multi-runtime UI does not exist yet (W3 wave). Hard-coded to `['js']`;
-  // future wiring just needs to pass the user's selected runtime list.
-  history.replaceState(null, '', encodeStateV2(expr, ctx, ['js']))
+  history.replaceState(null, '', encodeStateV2(expr, ctx, matrix.getActiveRuntimes()))
 }
 
 // ===== Toast =====
@@ -723,6 +669,8 @@ function showToast(msg: string): void {
 }
 
 formatBtn.addEventListener('click', onFormatClick)
+
+reevalBtn.addEventListener('click', () => void evaluate())
 
 // ===== Share =====
 shareBtn.addEventListener('click', () => {
@@ -806,6 +754,7 @@ function init(): void {
     setExprValue(fromHash.expr)
     setCtxValue(fromHash.ctx)
     void evaluate()
+    matrix.restoreActiveRuntimes(fromHash.runtimes)
     return
   }
 
@@ -814,6 +763,7 @@ function init(): void {
     setExprValue(stored.expr)
     setCtxValue(stored.ctx)
     void evaluate()
+    matrix.restoreActiveRuntimes(stored.runtimes)
     return
   }
 

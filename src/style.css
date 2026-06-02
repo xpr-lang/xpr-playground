@@ -395,17 +395,19 @@ html, body {
   overflow: hidden;
 }
 
+/* Mobile-first (<1024px): tabbed. Only the runtime selected via .runtime-tabs
+   carries .is-current and is shown. The >=1024px query re-shows every panel
+   side-by-side and restores the column dividers. */
 .result-panel {
+  display: none;
   flex: 1;
-  display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid var(--border-subtle);
   min-width: 0;
 }
 
-.result-panel:last-child {
-  border-right: none;
+.result-panel.is-current {
+  display: flex;
 }
 
 .result-panel-header {
@@ -432,7 +434,20 @@ html, body {
   border: 1px solid rgba(255, 166, 87, 0.3);
 }
 
+.runtime-badge.python {
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(88, 166, 255, 0.3);
+}
+
+.runtime-badge.go {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
 .runtime-name {
+  display: none;
   font-size: 12px;
   color: var(--text-muted);
 }
@@ -467,6 +482,134 @@ html, body {
   color: var(--text-muted);
   font-size: 11.5px;
   letter-spacing: 0.02em;
+}
+
+/* ===== Runtime Matrix (W3.4): tabs, per-panel states, controls ===== */
+.reeval-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.reeval-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+.reeval-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.reeval-btn:disabled:hover {
+  border-color: var(--border);
+  color: var(--text-muted);
+  background: transparent;
+}
+.reeval-label {
+  display: none;
+}
+
+.runtime-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 10px 0;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.runtime-tab {
+  flex: 1;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.15s, box-shadow 0.15s;
+}
+.runtime-tab:hover {
+  color: var(--text);
+}
+.runtime-tab.is-current {
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.result-panel-status {
+  margin-left: auto;
+}
+
+.eval-status.divergence {
+  color: var(--yellow);
+}
+
+.result-panel-load,
+.result-panel-loading {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  text-align: center;
+}
+.result-panel[data-state="collapsed"] .result-output { display: none; }
+.result-panel[data-state="collapsed"] .result-panel-load { display: flex; }
+.result-panel[data-state="loading"] .result-output { display: none; }
+.result-panel[data-state="loading"] .result-panel-loading { display: flex; }
+
+.result-panel-load {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  transition: background 0.15s, color 0.15s;
+}
+.result-panel-load:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.result-panel-load .load-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.result-panel-load .load-hint {
+  font-size: 11px;
+  color: var(--text-subtle);
+  font-family: var(--font-mono);
+}
+
+.result-panel-loading {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner { animation: spin 2s linear infinite; }
 }
 
 .editor-statusbar {
@@ -582,6 +725,10 @@ html, body {
     display: inline;
   }
 
+  .reeval-label {
+    display: inline;
+  }
+
   .examples-select {
     max-width: none;
     font-size: 13px;
@@ -626,11 +773,21 @@ html, body {
     min-height: 140px;
     max-height: 240px;
   }
-}
 
-/* ===== Wide (≥1280px): scaffolding for future runtime matrix (W3.4) ===== */
-@media (min-width: 1280px) {
-  .results-panels {
-    gap: 0;
+  .runtime-tabs {
+    display: none;
+  }
+
+  .result-panel {
+    display: flex;
+    border-right: 1px solid var(--border-subtle);
+  }
+
+  .result-panel:last-child {
+    border-right: none;
+  }
+
+  .runtime-name {
+    display: inline;
   }
 }

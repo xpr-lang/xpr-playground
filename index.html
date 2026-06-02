@@ -67,15 +67,46 @@
         <div class="results-row">
           <div class="results-header">
             <span class="results-label">Result</span>
-            <span id="eval-status" class="eval-status"></span>
+            <button id="reeval-btn" class="reeval-btn" type="button" data-testid="reeval-all" title="Re-evaluate all active runtimes" aria-label="Re-evaluate all active runtimes">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span class="reeval-label">Re-evaluate all</span>
+            </button>
+          </div>
+          <div class="runtime-tabs" role="tablist" aria-label="Runtime selector">
+            <button class="runtime-tab is-current" id="tab-js" data-runtime="js" data-testid="tab-js" type="button" role="tab" aria-selected="true" aria-controls="result-js">JS</button>
+            <button class="runtime-tab" id="tab-python" data-runtime="python" data-testid="tab-python" type="button" role="tab" aria-selected="false" aria-controls="result-python">Py</button>
+            <button class="runtime-tab" id="tab-go" data-runtime="go" data-testid="tab-go" type="button" role="tab" aria-selected="false" aria-controls="result-go">Go</button>
           </div>
           <div class="results-panels">
-            <div class="result-panel" id="result-js">
+            <div class="result-panel is-current" id="result-js" data-runtime="js" data-state="ready" role="tabpanel" aria-labelledby="tab-js">
               <div class="result-panel-header">
                 <span class="runtime-badge js">JS</span>
                 <span class="runtime-name">JavaScript</span>
+                <span class="result-panel-status eval-status" id="status-js"></span>
               </div>
               <pre class="result-output" id="output-js"><span class="placeholder">—</span></pre>
+              <button class="result-panel-load" data-testid="load-js" type="button"><span class="load-title">Click to load</span><span class="load-hint">JavaScript</span></button>
+              <div class="result-panel-loading" data-testid="js-loading" aria-busy="true"><span class="loading-spinner" aria-hidden="true"></span><span class="loading-text">Loading…</span></div>
+            </div>
+            <div class="result-panel" id="result-python" data-runtime="python" data-state="collapsed" role="tabpanel" aria-labelledby="tab-python">
+              <div class="result-panel-header">
+                <span class="runtime-badge python">Py</span>
+                <span class="runtime-name">Python</span>
+                <span class="result-panel-status eval-status" id="status-python"></span>
+              </div>
+              <pre class="result-output" id="output-python"><span class="placeholder">—</span></pre>
+              <button class="result-panel-load" data-testid="load-python" type="button"><span class="load-title">Click to load</span><span class="load-hint">~3s on first use</span></button>
+              <div class="result-panel-loading" data-testid="python-loading" aria-busy="true"><span class="loading-spinner" aria-hidden="true"></span><span class="loading-text">Loading Python…</span></div>
+            </div>
+            <div class="result-panel" id="result-go" data-runtime="go" data-state="collapsed" role="tabpanel" aria-labelledby="tab-go">
+              <div class="result-panel-header">
+                <span class="runtime-badge go">Go</span>
+                <span class="runtime-name">Go</span>
+                <span class="result-panel-status eval-status" id="status-go"></span>
+              </div>
+              <pre class="result-output" id="output-go"><span class="placeholder">—</span></pre>
+              <button class="result-panel-load" data-testid="load-go" type="button"><span class="load-title">Click to load</span><span class="load-hint">~1s on first use</span></button>
+              <div class="result-panel-loading" data-testid="go-loading" aria-busy="true"><span class="loading-spinner" aria-hidden="true"></span><span class="loading-text">Loading Go…</span></div>
             </div>
           </div>
         </div>

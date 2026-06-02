@@ -94,12 +94,12 @@ console.log('=== W2.3 share-URL round-trip smoke ===\n')
 {
   const expr = '`你好 ${name}, 🚀 count=${count + 1}`'
   const ctx = JSON.stringify({ name: 'Алиса', count: 42, nested: { 中文: '★' } })
-  const hash = encodeStateV2(expr, ctx, ['js', 'py', 'go'])
+  const hash = encodeStateV2(expr, ctx, ['js', 'python', 'go'])
   console.log('\nv=2 unicode hash length:', hash.length)
   const decoded = decodeState(hash)
   check('v=2 unicode expr', decoded?.expr === expr)
   check('v=2 unicode ctx', decoded?.ctx === ctx)
-  check('v=2 multi-runtime parses CSV', JSON.stringify(decoded?.runtimes) === '["js","py","go"]')
+  check('v=2 multi-runtime parses CSV', JSON.stringify(decoded?.runtimes) === '["js","python","go"]')
 }
 
 // --- 3. Compression actually compresses (sanity)

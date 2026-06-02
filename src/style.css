@@ -555,6 +555,74 @@ html, body {
   color: var(--yellow);
 }
 
+/* W3.5 divergence: badge + diverging-panel outline + comparison view. The yellow
+   tints are literal rgba of --yellow (#d29922) because a CSS var hex cannot carry
+   an alpha channel, matching the .runtime-badge translucent-fill convention. */
+.divergence-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid rgba(210, 153, 34, 0.4);
+  border-radius: 4px;
+  background: rgba(210, 153, 34, 0.12);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.result-panel.is-divergent {
+  box-shadow: inset 0 0 0 1px rgba(210, 153, 34, 0.45);
+}
+
+.divergence-compare {
+  flex-shrink: 0;
+  max-height: 160px;
+  overflow: auto;
+  padding: 8px 14px;
+  border-top: 1px solid rgba(210, 153, 34, 0.35);
+  background: rgba(210, 153, 34, 0.06);
+  font-size: 12px;
+}
+.divergence-compare > summary {
+  cursor: pointer;
+  color: var(--yellow);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  list-style: none;
+}
+.divergence-compare > summary::-webkit-details-marker {
+  display: none;
+}
+.divergence-compare > summary::before {
+  content: '\2260  ';
+  font-weight: 700;
+}
+.divergence-compare-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+.divergence-compare-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.divergence-compare-row .dv-value {
+  font-family: var(--font-mono);
+  color: var(--text);
+  word-break: break-all;
+}
+.divergence-compare-row .dv-value.dv-diff {
+  color: var(--yellow);
+}
+.divergence-compare-note {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.divergence-compare-note a {
+  color: var(--accent);
+}
+
 .result-panel-load,
 .result-panel-loading {
   display: none;

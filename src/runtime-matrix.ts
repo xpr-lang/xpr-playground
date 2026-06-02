@@ -6,8 +6,14 @@
 // joins every subsequent re-evaluation.
 
 import type { EvaluationResult, RuntimeAdapter, RuntimeName } from './runtimes'
+import { detectDivergence, isDivergent } from './divergence'
+import type { DivergenceReport } from './divergence'
 
 const RUNTIME_ORDER = ['js', 'python', 'go'] as const
+
+const RUNTIME_LABEL: Record<RuntimeName, string> = { js: 'JS', python: 'Python', go: 'Go' }
+
+const DOCS_URL = 'https://xpr-lang.github.io/xpr-docs/'
 
 type PanelState = 'collapsed' | 'loading' | 'ready'
 
@@ -15,6 +21,7 @@ interface PanelRefs {
   panel: HTMLElement
   output: HTMLPreElement
   status: HTMLElement
+  badge: HTMLElement
   tab: HTMLButtonElement
   loadBtn: HTMLButtonElement
   loadingText: HTMLElement | null
@@ -43,6 +50,9 @@ export class RuntimeMatrix {
   private readonly onActiveChange: (active: RuntimeName[]) => void
   private readonly requestEvaluate: () => void
   private readonly refs: Record<RuntimeName, PanelRefs>
+  private readonly resultsRow: HTMLElement
+  private readonly compare: HTMLElement
+  private readonly compareBody: HTMLElement
   private readonly active = new Set<RuntimeName>(['js'])
   private current: RuntimeName = 'js'
   // Bumped on every evaluateAll/clearAll; a render is dropped if its generation is
@@ -59,6 +69,11 @@ export class RuntimeMatrix {
       python: queryRefs('python'),
       go: queryRefs('go'),
     }
+    this.resultsRow = requireEl('.results-row')
+    const built = buildCompareView()
+    this.compare = built.compare
+    this.compareBody = built.body
+    this.resultsRow.appendChild(this.compare)
     this.wireEvents()
   }
 
@@ -76,16 +91,21 @@ export class RuntimeMatrix {
 
   async evaluateAll(expr: string, ctx: Record<string, unknown>): Promise<void> {
     const gen = ++this.generation
-    const tasks: Array<Promise<void>> = []
+    this.clearDivergence()
+    const tasks: Array<Promise<EvaluationResult | null>> = []
     for (const name of this.active) {
       if (!this.adapters[name].isReady()) continue
       tasks.push(this.evaluateOne(name, expr, ctx, gen))
     }
-    await Promise.all(tasks)
+    const settled = await Promise.all(tasks)
+    if (gen !== this.generation) return
+    const results = settled.filter((r): r is EvaluationResult => r !== null)
+    this.applyDivergence(detectDivergence(results))
   }
 
   clearAll(): void {
     this.generation++
+    this.clearDivergence()
     for (const name of this.active) {
       this.setPanelState(name, 'ready')
       setOutput(this.refs[name].output, null, true)
@@ -95,6 +115,7 @@ export class RuntimeMatrix {
 
   showContextError(message: string): void {
     this.generation++
+    this.clearDivergence()
     for (const name of this.active) {
       this.setPanelState(name, 'ready')
       setOutput(this.refs[name].output, message, false)
@@ -132,20 +153,22 @@ export class RuntimeMatrix {
     expr: string,
     ctx: Record<string, unknown>,
     gen: number
-  ): Promise<void> {
+  ): Promise<EvaluationResult | null> {
     let result: EvaluationResult
     try {
       result = await this.adapters[name].evaluate(expr, ctx)
     } catch (err) {
-      if (gen !== this.generation) return
+      if (gen !== this.generation) return null
+      const message = err instanceof Error ? err.message : String(err)
       this.setPanelState(name, 'ready')
-      setOutput(this.refs[name].output, err instanceof Error ? err.message : String(err), false)
+      setOutput(this.refs[name].output, message, false)
       this.setStatus(name, 'error', 'error')
-      return
+      return { runtime: name, success: false, error: { message }, durationMs: 0 }
     }
-    if (gen !== this.generation) return
+    if (gen !== this.generation) return null
     this.setPanelState(name, 'ready')
     this.renderResult(name, result)
+    return result
   }
 
   private renderResult(name: RuntimeName, result: EvaluationResult): void {
@@ -205,6 +228,31 @@ export class RuntimeMatrix {
     el.textContent = text
     el.className = 'result-panel-status eval-status' + (cls ? ` ${cls}` : '')
   }
+
+  private clearDivergence(): void {
+    this.resultsRow.classList.remove('diverge')
+    for (const name of RUNTIME_ORDER) {
+      this.refs[name].badge.hidden = true
+      this.refs[name].panel.classList.remove('is-divergent')
+    }
+    this.compare.hidden = true
+    this.compareBody.replaceChildren()
+  }
+
+  private applyDivergence(report: DivergenceReport): void {
+    if (!isDivergent(report)) return
+    this.resultsRow.classList.add('diverge')
+    for (const name of RUNTIME_ORDER) {
+      const outcome = report.runtimes[name]
+      const diverging = outcome !== undefined && outcome !== 'match'
+      this.refs[name].badge.hidden = !diverging
+      this.refs[name].panel.classList.toggle('is-divergent', diverging)
+    }
+    for (const { runtime, value } of report.divergentValues ?? []) {
+      this.compareBody.appendChild(buildCompareRow(runtime, value, report.runtimes[runtime]))
+    }
+    this.compare.hidden = false
+  }
 }
 
 function queryRefs(name: RuntimeName): PanelRefs {
@@ -216,14 +264,73 @@ function queryRefs(name: RuntimeName): PanelRefs {
   if (!panel || !(output instanceof HTMLPreElement) || !status || !(tab instanceof HTMLButtonElement) || !loadBtn) {
     throw new Error(`RuntimeMatrix: missing DOM nodes for runtime "${name}"`)
   }
+  const badge = document.createElement('span')
+  badge.className = 'divergence-badge eval-status divergence'
+  badge.textContent = 'Divergence'
+  badge.hidden = true
+  status.parentElement?.insertBefore(badge, status)
   return {
     panel,
     output,
     status,
+    badge,
     tab,
     loadBtn,
     loadingText: panel.querySelector<HTMLElement>('.loading-text'),
   }
+}
+
+function requireEl(selector: string): HTMLElement {
+  const el = document.querySelector<HTMLElement>(selector)
+  if (!el) throw new Error(`RuntimeMatrix: missing DOM node "${selector}"`)
+  return el
+}
+
+function buildCompareView(): { compare: HTMLElement; body: HTMLElement } {
+  const compare = document.createElement('details')
+  compare.className = 'divergence-compare'
+  compare.hidden = true
+  compare.open = true
+
+  const summary = document.createElement('summary')
+  summary.textContent = 'Runtimes diverge'
+  compare.appendChild(summary)
+
+  const body = document.createElement('div')
+  body.className = 'divergence-compare-body'
+  compare.appendChild(body)
+
+  const note = document.createElement('p')
+  note.className = 'divergence-compare-note'
+  note.append(
+    'Values are normalized (object keys sorted) and byte-compared, with no float tolerance. '
+  )
+  const link = document.createElement('a')
+  link.href = DOCS_URL
+  link.target = '_blank'
+  link.rel = 'noopener'
+  link.textContent = 'Cross-runtime semantics'
+  note.appendChild(link)
+  compare.appendChild(note)
+
+  return { compare, body }
+}
+
+function buildCompareRow(runtime: RuntimeName, value: string, outcome: string | undefined): HTMLElement {
+  const row = document.createElement('div')
+  row.className = 'divergence-compare-row'
+
+  const label = document.createElement('span')
+  label.className = `runtime-badge ${runtime}`
+  label.textContent = RUNTIME_LABEL[runtime]
+  row.appendChild(label)
+
+  const val = document.createElement('code')
+  val.className = outcome === 'match' ? 'dv-value' : 'dv-value dv-diff'
+  val.textContent = value
+  row.appendChild(val)
+
+  return row
 }
 
 function formatResult(value: unknown): string {

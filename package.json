@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:cross-runtime": "node scripts/cross-runtime-test.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",

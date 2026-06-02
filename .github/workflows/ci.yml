@@ -20,3 +20,7 @@ jobs:
         working-directory: xpr-playground
       - run: bun run build
         working-directory: xpr-playground
+      - run: bun playwright install --with-deps
+        working-directory: xpr-playground
+      - run: bun playwright test
+        working-directory: xpr-playground

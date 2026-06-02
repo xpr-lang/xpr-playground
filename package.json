@@ -7,10 +7,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:e2e": "playwright test",
-    "test:cross-runtime": "node scripts/cross-runtime-test.mjs"
+    "test:cross-runtime": "node scripts/cross-runtime-test.mjs",
+    "test:bundle": "node scripts/bundle-budget.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.60.0",
     "typescript": "^5.9.3",
     "vite": "^8.0.0"

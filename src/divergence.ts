@@ -40,8 +40,8 @@ export function detectDivergence(results: EvaluationResult[]): DivergenceReport 
   if (successes.length === 0) {
     category = 'ALL_ERROR'
   } else if (errors.length === 0) {
-    const first = normalize(successes[0].value)
-    const allEqual = successes.every((r) => normalize(r.value) === first)
+    const normalized = successes.map((r) => normalize(r.value))
+    const allEqual = normalized.every((n) => n === normalized[0])
     category = allEqual ? 'ALL_MATCH' : 'SOME_DIFFER'
   } else {
     category = 'MIXED_ERROR_OK'

@@ -5,14 +5,17 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:cross-runtime": "node scripts/cross-runtime-test.mjs",
+    "test:bundle": "node scripts/bundle-budget.mjs"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@axe-core/playwright": "^4.11.3",
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.60.0",
+    "typescript": "^5.9.3",
     "vite": "^8.0.0"
-  },
-  "peerDependencies": {
-    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
@@ -20,7 +23,8 @@
     "@codemirror/language": "^6.12.2",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.40.0",
-    "@xpr-lang/xpr": "file:../xpr-js",
-    "codemirror": "^6.0.2"
+    "@xpr-lang/xpr": "^0.5.1",
+    "codemirror": "^6.0.2",
+    "fflate": "^0.8.3"
   }
 }

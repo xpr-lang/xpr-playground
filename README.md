@@ -30,6 +30,10 @@ bun run build
 
 Output goes to `dist/`.
 
+## Packages
+
+- [`@xpr-lang/playground-link`](packages/playground-link/) — a tiny, dependency-light URL builder for deep-linking expressions into this playground (generates the `v=2` share URL). Useful from docs sites and tooling.
+
 ## Related Repos
 
 - [xpr-lang/xpr](https://github.com/xpr-lang/xpr) — Language specification

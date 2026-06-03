@@ -2,3 +2,7 @@ node_modules/
 dist/
 .DS_Store
 *.swp
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

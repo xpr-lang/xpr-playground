@@ -5,42 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>XPR Playground</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="description" content="XPR Playground — try the cross-runtime expression language in your browser. Live evaluation in JavaScript, Python, and Go side-by-side. Shareable links, no install required." />
+    <meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="canonical" href="https://xpr-playground.pages.dev/" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:title" content="XPR Playground — cross-runtime expression language" />
+    <meta property="og:description" content="Same expression. JavaScript. Python. Go. Side-by-side. No install." />
+    <meta property="og:image" content="https://xpr-playground.pages.dev/og.png" />
+    <meta property="og:url" content="https://xpr-playground.pages.dev/" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="XPR Playground" />
+    <meta name="twitter:description" content="Same expression. JS. Python. Go. Side-by-side. Try it in your browser." />
+    <meta name="twitter:image" content="https://xpr-playground.pages.dev/og.png" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="app">
+      <a href="#main" class="skip-nav">Skip to main content</a>
       <header class="header">
         <div class="header-left">
           <span class="logo">XPR</span>
           <span class="tagline">Playground</span>
         </div>
         <div class="header-right">
-          <select id="examples-select" class="examples-select" title="Load an example">
-            <option value="">Examples…</option>
-            <option value="map">Map: double array</option>
-            <option value="filter">Filter active items</option>
-            <option value="template">Template literal</option>
-            <option value="optional">Optional chaining</option>
-            <option value="reduce">Sum prices</option>
-            <option value="let_bindings">Let bindings</option>
-            <option value="spread_merge">Spread merge</option>
-          </select>
-          <button id="share-btn" class="btn btn-secondary" title="Copy shareable link">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            Share
+          <select id="examples-select" class="examples-select" title="Load an example" aria-label="Load an example"></select>
+          <button id="format-btn" class="btn btn-ghost" type="button" data-testid="format-button" title="Format expression" aria-label="Format expression">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+            <span class="btn-label">Format</span>
           </button>
-          <a href="https://xpr-lang.github.io/xpr-docs/" target="_blank" rel="noopener" class="btn btn-ghost" title="Documentation">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 0 3-3h7z"/></svg>
-            Docs
+          <button id="theme-toggle" class="btn btn-ghost btn-icon theme-toggle" type="button" data-testid="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          </button>
+          <button id="share-btn" class="btn btn-secondary" type="button" title="Copy shareable link" aria-label="Copy shareable link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span class="btn-label">Share</span>
+          </button>
+          <a href="https://xpr-lang.github.io/xpr-docs/" target="_blank" rel="noopener" class="btn btn-ghost" title="Documentation" aria-label="Documentation">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 0 3-3h7z"/></svg>
+            <span class="btn-label">Docs</span>
           </a>
         </div>
       </header>
 
-      <main class="main">
+      <main class="main" id="main" tabindex="-1">
         <div class="editors-row">
           <div class="editor-pane">
             <div class="pane-label">Expression</div>
             <div id="expr-editor" class="editor-container"></div>
+            <div class="editor-statusbar"><span id="cursor-status" class="cursor-status" data-testid="cursor-status">Ln 1, Col 1</span></div>
           </div>
           <div class="editor-pane">
             <div class="pane-label">Context <span class="pane-label-hint">(JSON)</span></div>
@@ -51,15 +68,52 @@
         <div class="results-row">
           <div class="results-header">
             <span class="results-label">Result</span>
-            <span id="eval-status" class="eval-status"></span>
+            <button id="reeval-btn" class="reeval-btn" type="button" data-testid="reeval-all" title="Re-evaluate all active runtimes" aria-label="Re-evaluate all active runtimes">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span class="reeval-label">Re-evaluate all</span>
+            </button>
+          </div>
+          <div class="runtime-tabs" role="tablist" aria-label="Runtime selector">
+            <button class="runtime-tab is-current" id="tab-js" data-runtime="js" data-testid="tab-js" type="button" role="tab" aria-selected="true" aria-controls="result-js">JS</button>
+            <button class="runtime-tab" id="tab-python" data-runtime="python" data-testid="tab-python" type="button" role="tab" aria-selected="false" aria-controls="result-python">Py</button>
+            <button class="runtime-tab" id="tab-go" data-runtime="go" data-testid="tab-go" type="button" role="tab" aria-selected="false" aria-controls="result-go">Go</button>
           </div>
           <div class="results-panels">
-            <div class="result-panel" id="result-js">
+            <div class="result-panel is-current" id="result-js" data-runtime="js" data-state="ready" role="tabpanel" aria-labelledby="tab-js">
               <div class="result-panel-header">
                 <span class="runtime-badge js">JS</span>
                 <span class="runtime-name">JavaScript</span>
+                <span class="result-panel-status eval-status" id="status-js"></span>
+                <span class="result-panel-busy" data-testid="busy-js" aria-hidden="true"><span class="busy-spinner"></span></span>
               </div>
-              <pre class="result-output" id="output-js"><span class="placeholder">—</span></pre>
+              <pre class="result-output" id="output-js" aria-live="polite"><span class="placeholder">—</span></pre>
+              <button class="result-panel-load" data-testid="load-js" type="button"><span class="load-title">Click to load JavaScript</span><span class="load-hint">ready instantly</span></button>
+              <div class="result-panel-loading" data-testid="loading-js" aria-busy="true"><span class="loading-spinner" aria-hidden="true"></span><span class="loading-text">Loading…</span><span class="loading-progress" role="progressbar" aria-label="Load progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="loading-bar"></span></span></div>
+              <div class="result-panel-failure" data-testid="failure-js"><span class="failure-title">Evaluation timed out</span><span class="failure-detail"></span><button class="result-panel-recover" data-testid="recover-js" type="button">Retry</button></div>
+            </div>
+            <div class="result-panel" id="result-python" data-runtime="python" data-state="collapsed" role="tabpanel" aria-labelledby="tab-python">
+              <div class="result-panel-header">
+                <span class="runtime-badge python">Py</span>
+                <span class="runtime-name">Python</span>
+                <span class="result-panel-status eval-status" id="status-python"></span>
+                <span class="result-panel-busy" data-testid="busy-python" aria-hidden="true"><span class="busy-spinner"></span></span>
+              </div>
+              <pre class="result-output" id="output-python" aria-live="polite"><span class="placeholder">—</span></pre>
+              <button class="result-panel-load" data-testid="load-python" type="button"><span class="load-title">Click to load Python</span><span class="load-hint">~3s on first load</span></button>
+              <div class="result-panel-loading" data-testid="loading-python" aria-busy="true"><span class="loading-spinner" aria-hidden="true"></span><span class="loading-text">Loading Python…</span><span class="loading-progress" role="progressbar" aria-label="Load progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="loading-bar"></span></span></div>
+              <div class="result-panel-failure" data-testid="failure-python"><span class="failure-title">Evaluation timed out</span><span class="failure-detail"></span><button class="result-panel-recover" data-testid="recover-python" type="button">Retry</button></div>
+            </div>
+            <div class="result-panel" id="result-go" data-runtime="go" data-state="collapsed" role="tabpanel" aria-labelledby="tab-go">
+              <div class="result-panel-header">
+                <span class="runtime-badge go">Go</span>
+                <span class="runtime-name">Go</span>
+                <span class="result-panel-status eval-status" id="status-go"></span>
+                <span class="result-panel-busy" data-testid="busy-go" aria-hidden="true"><span class="busy-spinner"></span></span>
+              </div>
+              <pre class="result-output" id="output-go" aria-live="polite"><span class="placeholder">—</span></pre>
+              <button class="result-panel-load" data-testid="load-go" type="button"><span class="load-title">Click to load Go</span><span class="load-hint">~1s on first load</span></button>
+              <div class="result-panel-loading" data-testid="loading-go" aria-busy="true"><span class="loading-spinner" aria-hidden="true"></span><span class="loading-text">Loading Go…</span><span class="loading-progress" role="progressbar" aria-label="Load progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="loading-bar"></span></span></div>
+              <div class="result-panel-failure" data-testid="failure-go"><span class="failure-title">Evaluation timed out</span><span class="failure-detail"></span><button class="result-panel-recover" data-testid="recover-go" type="button">Reset</button></div>
             </div>
           </div>
         </div>

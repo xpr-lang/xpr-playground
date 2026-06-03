@@ -1,0 +1,238 @@
+{
+  "$schema": "cross-runtime-v1",
+  "description": "Cross-runtime equivalence fixture (W5.2). examples = the 16 playground EXAMPLES; expected = current xpr-js output. The runner asserts JS == Python == Go (canonical sorted-key JSON) for every example. knownDivergences are by-design exceptions catalogued in known-divergences.md.",
+  "examples": [
+    {
+      "id": "map",
+      "label": "Map: double array",
+      "expr": "[1, 2, 3].map(x => x * 2)",
+      "ctx": {},
+      "expected": [
+        2,
+        4,
+        6
+      ]
+    },
+    {
+      "id": "filter",
+      "label": "Filter active items",
+      "expr": "items.filter(x => x.active).map(x => x.name)",
+      "ctx": {
+        "items": [
+          {
+            "name": "Widget",
+            "active": true
+          },
+          {
+            "name": "Gadget",
+            "active": false
+          },
+          {
+            "name": "Doohickey",
+            "active": true
+          }
+        ]
+      },
+      "expected": [
+        "Widget",
+        "Doohickey"
+      ]
+    },
+    {
+      "id": "template",
+      "label": "Template literal",
+      "expr": "`Hello ${name}, you have ${count} items`",
+      "ctx": {
+        "name": "Alice",
+        "count": 3
+      },
+      "expected": "Hello Alice, you have 3 items"
+    },
+    {
+      "id": "optional",
+      "label": "Optional chaining",
+      "expr": "user?.address?.city ?? \"unknown\"",
+      "ctx": {
+        "user": {
+          "address": null
+        }
+      },
+      "expected": "unknown"
+    },
+    {
+      "id": "reduce",
+      "label": "Reduce: sum prices",
+      "expr": "items.reduce((sum, x) => sum + x.price, 0)",
+      "ctx": {
+        "items": [
+          {
+            "price": 10
+          },
+          {
+            "price": 20
+          },
+          {
+            "price": 5
+          }
+        ]
+      },
+      "expected": 35
+    },
+    {
+      "id": "let_bindings",
+      "label": "Let bindings",
+      "expr": "let items = [1,2,3,4,5]; let big = items.filter(x => x > 2); big.map(x => x * 10)",
+      "ctx": {},
+      "expected": [
+        30,
+        40,
+        50
+      ]
+    },
+    {
+      "id": "spread_merge",
+      "label": "Spread merge",
+      "expr": "{...defaults, ...overrides}",
+      "ctx": {
+        "defaults": {
+          "color": "blue",
+          "size": 10
+        },
+        "overrides": {
+          "color": "red"
+        }
+      },
+      "expected": {
+        "color": "red",
+        "size": 10
+      }
+    },
+    {
+      "id": "date_formatting",
+      "label": "Date formatting",
+      "expr": "formatDate(parseDate(\"2024-06-15T10:30:45Z\"), \"yyyy-MM-dd HH:mm:ss\")",
+      "ctx": {},
+      "expected": "2024-06-15 10:30:45"
+    },
+    {
+      "id": "regex_extraction",
+      "label": "Regex: extract all matches",
+      "expr": "matchAll(\"Order #123, Order #456, Order #789\", \"\\\\d+\")",
+      "ctx": {},
+      "expected": [
+        "123",
+        "456",
+        "789"
+      ]
+    },
+    {
+      "id": "regex_literals",
+      "label": "Regex literals",
+      "expr": "let emails = [\"alice@example.com\", \"not-an-email\", \"bob@test.org\"]; emails.filter(s => /^[\\w.]+@[\\w.]+$/.test(s))",
+      "ctx": {},
+      "expected": [
+        "alice@example.com",
+        "bob@test.org"
+      ]
+    },
+    {
+      "id": "destructuring",
+      "label": "Object destructuring",
+      "expr": "let {name, age = 0} = user; `${name} is ${age}`",
+      "ctx": {
+        "user": {
+          "name": "Alice",
+          "age": 30
+        }
+      },
+      "expected": "Alice is 30"
+    },
+    {
+      "id": "destructuring_map",
+      "label": "Destructuring in map",
+      "expr": "users.map(({name, role}) => `${name} (${role})`)",
+      "ctx": {
+        "users": [
+          {
+            "name": "Alice",
+            "role": "admin"
+          },
+          {
+            "name": "Bob",
+            "role": "viewer"
+          },
+          {
+            "name": "Carol",
+            "role": "editor"
+          }
+        ]
+      },
+      "expected": [
+        "Alice (admin)",
+        "Bob (viewer)",
+        "Carol (editor)"
+      ]
+    },
+    {
+      "id": "math_constants",
+      "label": "Math constants (PI, pow)",
+      "expr": "let radius = 5; let area = PI * pow(radius, 2); round(area * 100) / 100",
+      "ctx": {},
+      "expected": 78.54
+    },
+    {
+      "id": "collection_helpers",
+      "label": "Collection helpers (compact, unique)",
+      "expr": "let data = [3, null, 1, null, 4, 1, 5]; data.compact().unique().sortBy(x => x)",
+      "ctx": {},
+      "expected": [
+        1,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "id": "type_checking",
+      "label": "Type checking (partition)",
+      "expr": "let values = [1, \"two\", null, [3]]; values.partition(x => isNumber(x))",
+      "ctx": {},
+      "expected": [
+        [
+          1
+        ],
+        [
+          "two",
+          null,
+          [
+            3
+          ]
+        ]
+      ]
+    },
+    {
+      "id": "negative_indexing_spread",
+      "label": "Negative indexing + spread",
+      "expr": "let nums = [3, 1, 4, 1, 5, 9]; [nums[-1], max(...nums)]",
+      "ctx": {},
+      "expected": [
+        9,
+        9
+      ]
+    }
+  ],
+  "knownDivergences": [
+    {
+      "id": "regex_unicode_word",
+      "expr": "matchAll(\"café\", \"\\\\w+\")",
+      "ctx": {},
+      "reason": "Python's re module treats \\w as Unicode-aware (matches the accented 'é'), so it returns one token \"café\"; JavaScript (default RegExp) and Go (RE2) treat \\w as ASCII, splitting at 'é' and returning \"caf\"."
+    },
+    {
+      "id": "regex_lookbehind",
+      "expr": "match(\"foobar\", \"(?<=foo)bar\")",
+      "ctx": {},
+      "reason": "JavaScript and Python support lookbehind assertions and return \"bar\"; Go uses the RE2 engine which has no lookbehind and raises a compile error."
+    }
+  ]
+}

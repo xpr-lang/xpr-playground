@@ -1,0 +1,52 @@
+{
+  "name": "@xpr-lang/playground-link",
+  "version": "0.1.0",
+  "description": "Tiny URL builder for deep-linking expressions into the XPR Playground.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "xpr",
+    "playground",
+    "url",
+    "deep-link",
+    "share",
+    "permalink"
+  ],
+  "homepage": "https://xpr-playground.pages.dev/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xpr-lang/xpr-playground.git",
+    "directory": "packages/playground-link"
+  },
+  "bugs": {
+    "url": "https://github.com/xpr-lang/xpr-playground/issues"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "tsc -p tsconfig.json",
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
